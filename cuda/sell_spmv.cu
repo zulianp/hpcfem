@@ -193,7 +193,12 @@ int main(void) {
     // Calculate elapsed time
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
+    
+    double avg_time = milliseconds/1000;
+    double avg_throughput = (A_num_rows / avg_time) * 1e-6;
+
     printf("Time for matrix-vector multiplication: %f milliseconds\n", milliseconds);
+    printf("Throughput %g (MDOF/s)\n");
 
     // destroy matrix/vector descriptors
     CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
