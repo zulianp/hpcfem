@@ -126,28 +126,29 @@ int main(void) {
     float     beta            = 0.0f;
     //--------------------------------------------------------------------------
     // Device memory management
-    // int   *dA_csrOffsets, *dA_columns;
+    int   *dA_csrOffsets, *dA_columns;
     double *dA_values, *dX, *dY;
 
-    int64_t sellValuesSize = 0;
+    // int64_t sellValuesSize = 0;
     int64_t elements_read;
 
-    int *sellSliceOffsets = load_int32_array("sell_slice_offsets.i32", &elements_read);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellSliceOffsets, elements_read * sizeof(int32_t), 0) )
+    dA_csrOffsets = load_int32_array("rowptr.raw", &elements_read);
+    A_num_rows = elements_read; //sellMetaInfo[0];
+    A_num_cols = elements_read; //sellMetaInfo[0];
+    CHECK_CUDA( cudaMemPrefetchAsync(dA_csrOffsets, elements_read * sizeof(int32_t), 0) )
 
-    double *sellValues = load_float64_array("sell_values.f64", &sellValuesSize);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellValues, sellValuesSize * sizeof(double), 0) )
+    dA_values = load_float64_array("values.raw", &elements_read);
+    A_nnz = elements_read; //sellMetaInfo[1];
+    CHECK_CUDA( cudaMemPrefetchAsync(dA_values, A_nnz * sizeof(double), 0) )
 
-    int *sellColInd = load_int32_array("sell_column_indices.i32", &elements_read);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellColInd, elements_read * sizeof(int32_t), 0) )
+    dA_columns = load_int32_array("colidx.raw", &elements_read);
+    CHECK_CUDA( cudaMemPrefetchAsync(dA_columns, elements_read * sizeof(int32_t), 0) )
 
-    int *sellMetaInfo = load_int32_array("sell_meta.i32", &elements_read);
+    // int *sellMetaInfo = load_int32_array("sell_meta.i32", &elements_read);
 
-    int sliceSize = 32;
+    // int sliceSize = 2;
 
-    A_num_rows = sellMetaInfo[0];
-    A_num_cols = sellMetaInfo[0];
-    A_nnz = sellMetaInfo[1];
+
     // sliceSize = sellMetaInfo[2];
 
     // Timing variables
@@ -163,12 +164,12 @@ int main(void) {
     void*                dBuffer    = NULL;
     size_t               bufferSize = 0;
     CHECK_CUSPARSE( cusparseCreate(&handle) )
-    // Create sparse matrix A in SELL format
 
-    CHECK_CUSPARSE( cusparseCreateSlicedEll(&matA, A_num_rows, A_num_cols, A_nnz,
-                            sellValuesSize, sliceSize, sellSliceOffsets, sellColInd, sellValues,
-                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                            CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
+    // Create sparse matrix A in CSR format
+    CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+                                      dA_csrOffsets, dA_columns, dA_values,
+                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
 
     CHECK_CUDA( cudaMallocManaged((void**) &dX, A_num_cols * sizeof(double)) )
     CHECK_CUDA( cudaMallocManaged((void**) &dY, A_num_rows * sizeof(double)) )
@@ -184,7 +185,6 @@ int main(void) {
                                  CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize) )
     CHECK_CUDA( cudaMallocManaged(&dBuffer, bufferSize) )
 
-    // CHECK_CUDA( cudaMemPrefetchAsync(dBuffer, bufferSize, 0) )
     CHECK_CUDA( cudaMemPrefetchAsync(dX, A_num_cols * sizeof(double), 0) )
     CHECK_CUDA( cudaMemPrefetchAsync(dY, A_num_rows * sizeof(double), 0) )
 
@@ -212,14 +212,7 @@ int main(void) {
     CHECK_CUSPARSE( cusparseDestroyDnVec(vecY) )
     CHECK_CUSPARSE( cusparseDestroy(handle) )
 
-    //--------------------------------------------------------------------------
-    // device memory deallocation
-    // CHECK_CUDA( cudaFree(dBuffer) )
-    // CHECK_CUDA( cudaFree(dA_csrOffsets) )
-    // CHECK_CUDA( cudaFree(dA_columns) )
-    // CHECK_CUDA( cudaFree(dA_values) )
     CHECK_CUDA( cudaFree(dX) )
     CHECK_CUDA( cudaFree(dY) )
     return EXIT_SUCCESS;
 }
-

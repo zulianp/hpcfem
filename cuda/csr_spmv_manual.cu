@@ -2,6 +2,30 @@
 #include <cusparse.h>         // cusparseSpMV
 #include <stdio.h>            // printf
 #include <stdlib.h>           // EXIT_FAILURE
+#include <assert.h>
+
+// nvcc csr.cu -o csr -lcusparse -std=c++14 -arch=sm_60 -Xptxas=-O3,-v -use_fast_math
+
+inline void cuda_check(cudaError_t code, const char* file, int line, bool abort = true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr, "cuda_check: %s %s:%d\n", cudaGetErrorString(code), file, line);
+        assert(!code);
+        if (abort) exit(code);
+    }
+}
+
+#define CUDA_CHECK(ans) \
+    { cuda_check((ans), __FILE__, __LINE__); }
+
+#ifndef NDEBUG
+#define DEBUG_SYNCHRONIZE()                \
+    do {                                        \
+        cudaDeviceSynchronize();                \
+        CUDA_CHECK(cudaPeekAtLastError()); \
+    } while (0)
+#else
+#define DEBUG_SYNCHRONIZE()
+#endif
 
 #define CHECK_CUDA(func)                                                       \
 {                                                                              \
@@ -26,7 +50,7 @@
 int* load_int32_array(const char *filename, int64_t *elements_read) {
     FILE *file;
     long file_size;
-    int *buffer;
+    int *buffer, *device_buffer;
     size_t num_elements;
 
     // Open the file for reading in binary mode
@@ -45,9 +69,12 @@ int* load_int32_array(const char *filename, int64_t *elements_read) {
     num_elements = file_size / sizeof(int);
 
     // Allocate managed memory for the buffer
-    cudaError_t err = cudaMallocManaged((void**)&buffer, file_size);
+    buffer = (int *) malloc(file_size);
+    cudaError_t err = cudaMalloc((void**)&device_buffer, file_size);
+    DEBUG_SYNCHRONIZE();
+
     if (err != cudaSuccess) {
-        fprintf(stderr, "Error allocating managed memory: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "Error allocating device memory: %s\n", cudaGetErrorString(err));
         fclose(file);
         return NULL;
     }
@@ -56,24 +83,27 @@ int* load_int32_array(const char *filename, int64_t *elements_read) {
     *elements_read = fread(buffer, sizeof(int), num_elements, file);
     if (*elements_read != num_elements) {
         perror("Error reading file");
-        cudaFree(buffer);
+        // cudaFree(buffer);
+        free(buffer);
         fclose(file);
         return NULL;
     }
 
     // Close the file
     fclose(file);
+    cudaMemcpy(device_buffer, buffer, file_size, cudaMemcpyHostToDevice);
+    DEBUG_SYNCHRONIZE();
 
     // Report the number of elements read
     printf("Number of elements read from %s: %d\n", filename, *elements_read);
 
-    return buffer;
+    return device_buffer;
 }
 
 double* load_float64_array(const char *filename, int64_t *elements_read) {
     FILE *file;
     long file_size;
-    double *buffer;
+    double *buffer, *device_buffer;
     size_t num_elements;
 
     // Open the file for reading in binary mode
@@ -92,18 +122,23 @@ double* load_float64_array(const char *filename, int64_t *elements_read) {
     num_elements = file_size / sizeof(double);
 
     // Allocate managed memory for the buffer
-    cudaError_t err = cudaMallocManaged((void**)&buffer, file_size);
+    // cudaError_t err = cudaMallocHost((void**)&buffer, file_size);
+    buffer = (double *) malloc(file_size);
+    cudaError_t err = cudaMalloc((void**)&device_buffer, file_size);
+    DEBUG_SYNCHRONIZE();
+
     if (err != cudaSuccess) {
-        fprintf(stderr, "Error allocating managed memory: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "Error allocating device memory: %s\n", cudaGetErrorString(err));
         fclose(file);
         return NULL;
     }
-
+    
     // Read the entire content of the file into the buffer
     *elements_read = fread(buffer, sizeof(double), num_elements, file);
     if (*elements_read != num_elements) {
         perror("Error reading file");
-        cudaFree(buffer);
+        // cudaFree(buffer);
+        free(buffer);
         fclose(file);
         return NULL;
     }
@@ -111,10 +146,13 @@ double* load_float64_array(const char *filename, int64_t *elements_read) {
     // Close the file
     fclose(file);
 
+    cudaMemcpy(device_buffer, buffer, file_size, cudaMemcpyHostToDevice);
+    DEBUG_SYNCHRONIZE();
+
     // Report the number of elements read
     printf("Number of elements read from %s: %d\n", filename, *elements_read);
 
-    return buffer;
+    return device_buffer;
 }
 
 int main(void) {
@@ -126,28 +164,29 @@ int main(void) {
     float     beta            = 0.0f;
     //--------------------------------------------------------------------------
     // Device memory management
-    // int   *dA_csrOffsets, *dA_columns;
+    int   *dA_csrOffsets, *dA_columns;
     double *dA_values, *dX, *dY;
 
-    int64_t sellValuesSize = 0;
+    // int64_t sellValuesSize = 0;
     int64_t elements_read;
 
-    int *sellSliceOffsets = load_int32_array("sell_slice_offsets.i32", &elements_read);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellSliceOffsets, elements_read * sizeof(int32_t), 0) )
+    dA_csrOffsets = load_int32_array("rowptr.raw", &elements_read);
+    A_num_rows = elements_read; //sellMetaInfo[0];
+    A_num_cols = elements_read; //sellMetaInfo[0];
+    // CHECK_CUDA( cudaMemPrefetchAsync(dA_csrOffsets, elements_read * sizeof(int32_t), 0) )
 
-    double *sellValues = load_float64_array("sell_values.f64", &sellValuesSize);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellValues, sellValuesSize * sizeof(double), 0) )
+    dA_values = load_float64_array("values.raw", &elements_read);
+    A_nnz = elements_read; //sellMetaInfo[1];
+    // CHECK_CUDA( cudaMemPrefetchAsync(dA_values, A_nnz * sizeof(double), 0) )
 
-    int *sellColInd = load_int32_array("sell_column_indices.i32", &elements_read);
-    CHECK_CUDA( cudaMemPrefetchAsync(sellColInd, elements_read * sizeof(int32_t), 0) )
+    dA_columns = load_int32_array("colidx.raw", &elements_read);
+    // CHECK_CUDA( cudaMemPrefetchAsync(dA_columns, elements_read * sizeof(int32_t), 0) )
 
-    int *sellMetaInfo = load_int32_array("sell_meta.i32", &elements_read);
+    // int *sellMetaInfo = load_int32_array("sell_meta.i32", &elements_read);
 
-    int sliceSize = 32;
+    // int sliceSize = 2;
 
-    A_num_rows = sellMetaInfo[0];
-    A_num_cols = sellMetaInfo[0];
-    A_nnz = sellMetaInfo[1];
+
     // sliceSize = sellMetaInfo[2];
 
     // Timing variables
@@ -163,15 +202,15 @@ int main(void) {
     void*                dBuffer    = NULL;
     size_t               bufferSize = 0;
     CHECK_CUSPARSE( cusparseCreate(&handle) )
-    // Create sparse matrix A in SELL format
 
-    CHECK_CUSPARSE( cusparseCreateSlicedEll(&matA, A_num_rows, A_num_cols, A_nnz,
-                            sellValuesSize, sliceSize, sellSliceOffsets, sellColInd, sellValues,
-                            CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                            CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
-
-    CHECK_CUDA( cudaMallocManaged((void**) &dX, A_num_cols * sizeof(double)) )
-    CHECK_CUDA( cudaMallocManaged((void**) &dY, A_num_rows * sizeof(double)) )
+    // Create sparse matrix A in CSR format
+    CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+                                      dA_csrOffsets, dA_columns, dA_values,
+                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
+                                      
+    CHECK_CUDA( cudaMalloc((void**) &dX, A_num_cols * sizeof(double)) )
+    CHECK_CUDA( cudaMalloc((void**) &dY, A_num_rows * sizeof(double)) )
 
     // Create dense vector X
     CHECK_CUSPARSE( cusparseCreateDnVec(&vecX, A_num_cols, dX, CUDA_R_64F) )
@@ -182,11 +221,11 @@ int main(void) {
                                  handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, vecX, &beta, vecY, CUDA_R_64F,
                                  CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize) )
-    CHECK_CUDA( cudaMallocManaged(&dBuffer, bufferSize) )
+    CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
 
-    // CHECK_CUDA( cudaMemPrefetchAsync(dBuffer, bufferSize, 0) )
-    CHECK_CUDA( cudaMemPrefetchAsync(dX, A_num_cols * sizeof(double), 0) )
-    CHECK_CUDA( cudaMemPrefetchAsync(dY, A_num_rows * sizeof(double), 0) )
+    DEBUG_SYNCHRONIZE();
+
+    cudaDeviceSynchronize();
 
     cudaEventRecord(start);
 
@@ -212,14 +251,7 @@ int main(void) {
     CHECK_CUSPARSE( cusparseDestroyDnVec(vecY) )
     CHECK_CUSPARSE( cusparseDestroy(handle) )
 
-    //--------------------------------------------------------------------------
-    // device memory deallocation
-    // CHECK_CUDA( cudaFree(dBuffer) )
-    // CHECK_CUDA( cudaFree(dA_csrOffsets) )
-    // CHECK_CUDA( cudaFree(dA_columns) )
-    // CHECK_CUDA( cudaFree(dA_values) )
     CHECK_CUDA( cudaFree(dX) )
     CHECK_CUDA( cudaFree(dY) )
     return EXIT_SUCCESS;
 }
-

@@ -4,7 +4,7 @@ import math
 # row_offsets = [0, 2, 3, 3, 5, 8]
 # column_indices = [0, 2, 1, 0, 1, 1, 2, 3]
 # values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
-rows_per_slice = 2
+rows_per_slice = 32
 
 # colidx.raw  meta.yaml  rowptr.raw  values.raw
 
