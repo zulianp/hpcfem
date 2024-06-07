@@ -26,9 +26,9 @@ for slice_idx in range(slices) :
     start_row = slice_idx * rows_per_slice
     end_row = start_row + rows_per_slice
     slice_columns = 0
-    print('start_row', start_row, 'end_row', end_row)
+    # print('start_row', start_row, 'end_row', end_row)
     for row_offset_idx in range(start_row, min(end_row, rows)) :
-        print(slice_idx, row_offset_idx, row_offsets[row_offset_idx+1] - row_offsets[row_offset_idx])
+        # print(slice_idx, row_offset_idx, row_offsets[row_offset_idx+1] - row_offsets[row_offset_idx])
         slice_columns = max(row_offsets[row_offset_idx+1] - row_offsets[row_offset_idx], slice_columns)
     sell_slice_offsets.append(sell_slice_offsets[-1] + slice_columns * rows_per_slice)
     for column_idx_offset in range(slice_columns) :
