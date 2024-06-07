@@ -149,10 +149,10 @@ double* load_float64_array(const char *filename, int64_t *elements_read) {
     return device_buffer;
 }
 
-int* load_int32_array_to_host(const char *filename, int64_t *elements_read) {
+int64_t* load_int64_array_to_host(const char *filename, int64_t *elements_read) {
     FILE *file;
     long file_size;
-    int *buffer;
+    int64_t *buffer;
     size_t num_elements;
 
     // Open the file for reading in binary mode
@@ -168,13 +168,13 @@ int* load_int32_array_to_host(const char *filename, int64_t *elements_read) {
     rewind(file);
 
     // Calculate the number of elements based on the file size
-    num_elements = file_size / sizeof(int);
+    num_elements = file_size / sizeof(int64_t);
 
     // Allocate managed memory for the buffer
-    buffer = (int *) malloc(file_size);
+    buffer = (int64_t *) malloc(file_size);
 
     // Read the entire content of the file into the buffer
-    *elements_read = fread(buffer, sizeof(int), num_elements, file);
+    *elements_read = fread(buffer, sizeof(int64_t), num_elements, file);
     if (*elements_read != num_elements) {
         perror("Error reading file");
         fclose(file);
@@ -215,7 +215,7 @@ int main(void) {
     int *sellColInd = load_int32_array("sell_column_indices.i32", &elements_read);
     // CHECK_CUDA( cudaMemPrefetchAsync(sellColInd, elements_read * sizeof(int32_t), 0) )
 
-    int *sellMetaInfo = load_int32_array_to_host("sell_meta.i32", &elements_read);
+    int64_t *sellMetaInfo = load_int64_array_to_host("sell_meta.i64", &elements_read);
 
     int sliceSize = 2;
 
