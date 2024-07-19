@@ -477,11 +477,12 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
 
           // TODOS
-          // Gather
-          // real_t x0 = vecX[threadId + e0 * element_stride];
-          // real_t x1 = vecX[threadId + e1 * element_stride];
-          // real_t x2 = vecX[threadId + e2 * element_stride];
-          // real_t x3 = vecX[threadId + e3 * element_stride];
+          // Gather (CPU stride = nxe, element_stride = 1)
+          // Gather (GPU stride = 1, element_stride = n_macro_elements)
+          // real_t x0 = vecX[threadId * stride + e0 * element_stride];
+          // real_t x1 = vecX[threadId * stride + e1 * element_stride];
+          // real_t x2 = vecX[threadId * stride + e2 * element_stride];
+          // real_t x3 = vecX[threadId * stride + e3 * element_stride];
 
           // const real_t y0 = A00 * x0 + A01 * x1 + A02 * x2 + A00 * x3
           // const real_t y1 = A10 * x0 + A11 * x1 + A12 * x2 + A10 * x3
@@ -489,10 +490,10 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           // const real_t y3 = A30 * x0 + A31 * x1 + A32 * x2 + A30 * x3
 
           // Scatter
-          // vecY[threadId + e0 * element_stride] += y0 
-          // vecY[threadId + e1 * element_stride] += y1 
-          // vecY[threadId + e2 * element_stride] += y2 
-          // vecY[threadId + e3 * element_stride] += y3 
+          // vecY[threadId * stride + e0 * element_stride] += y0 
+          // vecY[threadId * stride + e1 * element_stride] += y1 
+          // vecY[threadId * stride + e2 * element_stride] += y2 
+          // vecY[threadId * stride + e3 * element_stride] += y3 
 
           // REMOVE ME This stuff we do not need
           micro_tets[micro_tets_iter][0] = dofs[e0];
