@@ -119,6 +119,7 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
                             const real_t y0, const real_t y1, const real_t y2,
                             const real_t y3, const real_t z0, const real_t z1,
                             const real_t z2, const real_t z3) {
+#ifndef NDEBUG
   real_t J[9] = {
       x1 - x0, x2 - x0, x3 - x0, //
       y1 - y0, y2 - y0, y3 - y0, //
@@ -126,6 +127,9 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
   };
 
   print_matrix(J, 3, 3);
+
+  // assert(det3(J) > 0);
+#endif
 
   real_t fff[6];
   tet4_fff(x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, fff);
