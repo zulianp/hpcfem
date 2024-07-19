@@ -454,6 +454,12 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
     // J_c = J * J_ref_c 
     // assemble A
 
+    // tet4_laplacian_hessian(element_matrix, 0,
+    //                            J_c[0*3+0],  J_c[0*3+1], x3,
+    //                            0, J_c[1*3+0], y2,
+    //                            y3, 0, J_c[2*3+0],
+    //                            z2, z3);
+
     for (int i = 0; i < level - 1; i++) {
       int layer_items = (level - i) * (level - i - 1) / 2;
       for (int j = 0; j < level - i - 1; j++) {
