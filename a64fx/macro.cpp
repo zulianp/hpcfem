@@ -34,7 +34,7 @@ void print_coords(geom_t *matrix, int rows, int cols) {
   printf("\n");
 }
 
-// FFF
+// FFF < u, v >_FFF = u^T * FFF * v
 static inline void
 tet4_laplacian_hessian_fff(const real_t *const __restrict__ fff,
                            real_t *const __restrict__ element_matrix) {
@@ -270,6 +270,54 @@ void gather_and_scatter(int **micro_tets, int num_micro_tets, geom_t *x_coords,
   }
 }
 
+// GOAL (later)
+// void assemble_macro_elem_subparametric(
+//     const eid,
+//     const ptrdiff_t fff_stride,
+//     const geom_t *const fff,
+//     const real_t *const vecX, real_t *const vecY)
+// {
+//     fff[0 * fff_stride];
+//     fff[1 * fff_stride];
+//     fff[2 * fff_stride];
+//     fff[3 * fff_stride];
+//     fff[4 * fff_stride];
+//     fff[5 * fff_stride];
+
+// }
+
+// GOAL
+void static inline assemble_macro_elem_subparametric(
+    const ptrdiff_t eid,
+    const ptrdiff_t jacobian_stride,
+    const geom_t *const jacobian,
+    const ptrdiff_t vec_stride,
+    const real_t *const vecX, 
+    real_t *const vecY)
+{
+    // how you Access the jacobian
+    // jacobian[0 * jacobian_stride];
+    // jacobian[1 * jacobian_stride];
+    // jacobian[2 * jacobian_stride];
+    // jacobian[3 * jacobian_stride];
+    // jacobian[4 * jacobian_stride];
+    // jacobian[5 * jacobian_stride];
+    // jacobian[6 * jacobian_stride];
+    // jacobian[7 * jacobian_stride];
+    // jacobian[8 * jacobian_stride];
+
+    // loop on all sub elements p0 = [0, 0, 0], p1 = J[:,0], ....
+
+    // TODO:
+    // 1) Identify indexing per category
+    // 2) From jacobian create sub-jacobian for category
+    //    -> J_category = J * J_ref_category
+
+    // vecX[maco_element_node_idx * vec_stride] 
+    // vecY[maco_element_node_idx * vec_stride] 
+
+}
+
 // nxe nodes_per_element
 void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
                          geom_t *x_coords, geom_t *y_coords, geom_t *z_coords,
@@ -400,6 +448,11 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
       }
     }
     micro_tets_iter = 0;
+    
+    // Harcode ref_jacobian of category 
+    // ( G(p) = G2(G1(p)), chain rule. Special case Affine transform: A2 * (A1 * p + b1 ) + b2 = A2*A1*p + c)
+    // J_c = J * J_ref_c 
+    // assemble A
 
     for (int i = 0; i < level - 1; i++) {
       int layer_items = (level - i) * (level - i - 1) / 2;
@@ -416,6 +469,26 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           int e1 = p + layer_items + level - i - j - 1;
           int e2 = p + layer_items + level - i - j;
           int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+
+          // TODOS
+          // Gather
+          // real_t x0 = vecX[threadId + e0 * element_stride];
+          // real_t x1 = vecX[threadId + e1 * element_stride];
+          // real_t x2 = vecX[threadId + e2 * element_stride];
+          // real_t x3 = vecX[threadId + e3 * element_stride];
+
+          // const real_t y0 = A00 * x0 + A01 * x1 + A02 * x2 + A00 * x3
+          // const real_t y1 = A10 * x0 + A11 * x1 + A12 * x2 + A10 * x3
+          // const real_t y2 = A20 * x0 + A21 * x1 + A22 * x2 + A20 * x3
+          // const real_t y3 = A30 * x0 + A31 * x1 + A32 * x2 + A30 * x3
+
+          // Scatter
+          // vecY[threadId + e0 * element_stride] += y0 
+          // vecY[threadId + e1 * element_stride] += y1 
+          // vecY[threadId + e2 * element_stride] += y2 
+          // vecY[threadId + e3 * element_stride] += y3 
+
+          // REMOVE ME This stuff we do not need
           micro_tets[micro_tets_iter][0] = dofs[e0];
           micro_tets[micro_tets_iter][1] = dofs[e1];
           micro_tets[micro_tets_iter][2] = dofs[e2];
@@ -424,6 +497,8 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           i1[micro_tets_iter] = e1;
           i2[micro_tets_iter] = e2;
           i3[micro_tets_iter] = e3;
+
+
           micro_tets_iter += 1;
 
           p++;
