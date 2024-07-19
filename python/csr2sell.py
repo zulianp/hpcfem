@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import sys
 
 # row_offsets = [0, 2, 3, 3, 5, 8]
 # column_indices = [0, 2, 1, 0, 1, 1, 2, 3]
@@ -8,9 +9,13 @@ rows_per_slice = 32
 
 # colidx.raw  meta.yaml  rowptr.raw  values.raw
 
-values = np.fromfile("values.raw", dtype=float)
-row_offsets = np.fromfile("rowptr.raw", dtype=np.int32)
-column_indices = np.fromfile("colidx.raw", dtype=np.int32)
+csr_dir = './'
+if len(sys.argv) > 1:
+    csr_dir = sys.argv[1]
+
+values = np.fromfile(f"{csr_dir}/values.raw", dtype=float)
+row_offsets = np.fromfile(f"{csr_dir}/rowptr.raw", dtype=np.int32)
+column_indices = np.fromfile(f"{csr_dir}/colidx.raw", dtype=np.int32)
 
 rows = len(row_offsets) - 1
 slices = math.ceil(rows / rows_per_slice)
