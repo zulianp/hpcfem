@@ -9,6 +9,7 @@
 #define POW2(x) ((x) * (x))
 
 typedef double real_t;
+typedef float geom_t;
 
 void matrix_inverse(real_t *A, real_t *invA, int n);
 
@@ -331,14 +332,14 @@ void compute_A(real_t *p0, real_t *p1, real_t *p2, real_t *p3, real_t *A)
     assert(determinant(A, 3) > 0);
 }
 
-void gather_and_scatter(int **micro_tets, int num_micro_tets, real_t *x_coords, real_t *y_coords, real_t *z_coords, real_t *vecX, real_t *vecY)
+void gather_and_scatter(int **micro_tets, int num_micro_tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX, real_t *vecY)
 {
     // pick a random micro tetrahedron
     int *e0 = micro_tets[0]; // num_micro_tets - 1
-    // real_t p0[3] = {x_coords[e0[0]], y_coords[e0[0]], z_coords[e0[0]]};
-    // real_t p1[3] = {x_coords[e0[1]], y_coords[e0[1]], z_coords[e0[1]]};
-    // real_t p2[3] = {x_coords[e0[2]], y_coords[e0[2]], z_coords[e0[2]]};
-    // real_t p3[3] = {x_coords[e0[3]], y_coords[e0[3]], z_coords[e0[3]]};
+    // geom_t p0[3] = {x_coords[e0[0]], y_coords[e0[0]], z_coords[e0[0]]};
+    // geom_t p1[3] = {x_coords[e0[1]], y_coords[e0[1]], z_coords[e0[1]]};
+    // geom_t p2[3] = {x_coords[e0[2]], y_coords[e0[2]], z_coords[e0[2]]};
+    // geom_t p3[3] = {x_coords[e0[3]], y_coords[e0[3]], z_coords[e0[3]]};
 
     real_t local_M[16];
     // printf("p0: %lf %lf %lf\n", x_coords[e0[0]], y_coords[e0[0]], z_coords[e0[0]]);
@@ -369,7 +370,7 @@ void gather_and_scatter(int **micro_tets, int num_micro_tets, real_t *x_coords, 
 }
 
 void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets, 
-    real_t *x_coords, real_t *y_coords, real_t *z_coords, real_t *vecX, real_t *vecY)
+    geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX, real_t *vecY)
 {
     int level = tetra_level + 1;
     int n_macro_elems = 1;
@@ -426,9 +427,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e3;
+                    i1[global_iter] = e3;
                     i2[global_iter] = e2;
-                    i3[global_iter] = e3;//e1;
+                    i3[global_iter] = e1;
                     category[global_iter] = 1;
                     global_iter += 1;
 
@@ -482,9 +483,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e3;
+                    i1[global_iter] = e3;
                     i2[global_iter] = e2;
-                    i3[global_iter] = e3;//e1;
+                    i3[global_iter] = e1;
                     category[global_iter] = 2;
                     global_iter += 1;
 
@@ -537,9 +538,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e3;
+                    i1[global_iter] = e3;
                     i2[global_iter] = e2;
-                    i3[global_iter] = e3;//e1;
+                    i3[global_iter] = e1;
                     category[global_iter] = 3;
                     global_iter += 1;
 
@@ -592,9 +593,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e3;
+                    i1[global_iter] = e3;
                     i2[global_iter] = e2;
-                    i3[global_iter] = e3;//e1;
+                    i3[global_iter] = e1;
                     category[global_iter] = 4;
                     global_iter += 1;
 
@@ -648,9 +649,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e2;
-                    i2[global_iter] = e2;//e1;
-                    i3[global_iter] = e3;//e3;
+                    i1[global_iter] = e2;
+                    i2[global_iter] = e1;
+                    i3[global_iter] = e3;
                     category[global_iter] = 5;
                     global_iter += 1;
 
@@ -703,8 +704,8 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     local_iter += 1;
 
                     i0[global_iter] = e0;
-                    i1[global_iter] = e1;//e2;
-                    i2[global_iter] = e2;//e1;
+                    i1[global_iter] = e2;
+                    i2[global_iter] = e1;
                     i3[global_iter] = e3;
                     category[global_iter] = 6;
                     global_iter += 1;
@@ -718,25 +719,25 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
         // printf("Gathering category 6, processed %d tets\n", local_iter);
         gather_and_scatter(micro_tets, local_iter, x_coords, y_coords, z_coords, vecX, vecY);
 
-        // FILE *f = fopen("i0.raw", "wb");
-        // fwrite(i0, sizeof(int32_t), tets, f);
-        // fclose(f);
+        FILE *f = fopen("i0.raw", "wb");
+        fwrite(i0, sizeof(int32_t), tets, f);
+        fclose(f);
 
-        // f = fopen("i1.raw", "wb");
-        // fwrite(i1, sizeof(int32_t), tets, f);
-        // fclose(f);
+        f = fopen("i1.raw", "wb");
+        fwrite(i1, sizeof(int32_t), tets, f);
+        fclose(f);
 
-        // f = fopen("i2.raw", "wb");
-        // fwrite(i2, sizeof(int32_t), tets, f);
-        // fclose(f);
+        f = fopen("i2.raw", "wb");
+        fwrite(i2, sizeof(int32_t), tets, f);
+        fclose(f);
 
-        // f = fopen("i3.raw", "wb");
-        // fwrite(i3, sizeof(int32_t), tets, f);
-        // fclose(f);
+        f = fopen("i3.raw", "wb");
+        fwrite(i3, sizeof(int32_t), tets, f);
+        fclose(f);
 
-        // f = fopen("category.raw", "wb");
-        // fwrite(category, sizeof(real_t), tets, f);
-        // fclose(f);
+        f = fopen("category.raw", "wb");
+        fwrite(category, sizeof(real_t), tets, f);
+        fclose(f);
 
         // Free memory for micro_tets
         for (int i = 0; i < tets; i++)
@@ -891,7 +892,7 @@ void compute_Lapl(real_t *J, real_t *A)
     check_laplacian_matrix(A, 4);
 }
 
-int generate_coords(int tetra_level, real_t *x_coords, real_t *y_coords, real_t *z_coords)
+int generate_coords(int tetra_level, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords)
 {
     int node_index = 0;
 
@@ -901,9 +902,9 @@ int generate_coords(int tetra_level, real_t *x_coords, real_t *y_coords, real_t 
         {
             for (int k = 0; k <= tetra_level - i - j; k++)
             {
-                x_coords[node_index] = (real_t)i / tetra_level;
-                y_coords[node_index] = (real_t)j / tetra_level;
-                z_coords[node_index] = (real_t)k / tetra_level;
+                x_coords[node_index] = (geom_t)i / tetra_level;
+                y_coords[node_index] = (geom_t)j / tetra_level;
+                z_coords[node_index] = (geom_t)k / tetra_level;
                 // printf("%d %lf %lf %lf\n", node_index, x_coords[node_index], y_coords[node_index], z_coords[node_index]);
                 node_index++;
             }
@@ -911,28 +912,28 @@ int generate_coords(int tetra_level, real_t *x_coords, real_t *y_coords, real_t 
     }
 
     FILE *f = fopen("x.raw", "wb");
-    fwrite(x_coords, sizeof(real_t), node_index, f);
+    fwrite(x_coords, sizeof(geom_t), node_index, f);
     fclose(f);
 
     f = fopen("y.raw", "wb");
-    fwrite(y_coords, sizeof(real_t), node_index, f);
+    fwrite(y_coords, sizeof(geom_t), node_index, f);
     fclose(f);
 
     f = fopen("z.raw", "wb");
-    fwrite(z_coords, sizeof(real_t), node_index, f);
+    fwrite(z_coords, sizeof(geom_t), node_index, f);
     fclose(f);
 
     return node_index;
 }
 
-real_t *apply_macro_kernel(int **in_list, int tetra_level, int nodes, int tets, real_t *x_coords, real_t *y_coords, real_t *z_coords, real_t *vecX)
+real_t *apply_macro_kernel(int **in_list, int tetra_level, int nodes, int tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX)
 {
     real_t *vecY = (real_t *)malloc(nodes * sizeof(real_t *));
     assemble_macro_elem(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, vecX, vecY);
     return vecY;
 }
 
-void residual(int **in_list, int tetra_level, int nodes, int tets, real_t *x_coords, real_t *y_coords, real_t *z_coords, int *dirichlet_nodes, int num_dirichlet_nodes, real_t *rhs, real_t *x, real_t *r)
+void residual(int **in_list, int tetra_level, int nodes, int tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, int *dirichlet_nodes, int num_dirichlet_nodes, real_t *rhs, real_t *x, real_t *r)
 {
     // Call apply_macro_kernel to compute Ax
     real_t *Ax = apply_macro_kernel(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, x);
@@ -987,9 +988,9 @@ int main(void)
     printf("Generating %d micro-tetrahedrons\n", tets);
 
     // Allocate memory for coordinates
-    real_t *x_coords = (real_t *)malloc(nodes * sizeof(real_t));
-    real_t *y_coords = (real_t *)malloc(nodes * sizeof(real_t));
-    real_t *z_coords = (real_t *)malloc(nodes * sizeof(real_t));
+    geom_t *x_coords = (geom_t *)malloc(nodes * sizeof(geom_t));
+    geom_t *y_coords = (geom_t *)malloc(nodes * sizeof(geom_t));
+    geom_t *z_coords = (geom_t *)malloc(nodes * sizeof(geom_t));
 
     // Generate coordinates
     int num_coords = generate_coords(tetra_level, x_coords, y_coords, z_coords);
@@ -1015,7 +1016,7 @@ int main(void)
     }
 
     // Maximum number of iterations
-    int max_iters = 100000;
+    int max_iters = 1;
     real_t gamma = 1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
@@ -1049,18 +1050,18 @@ int main(void)
         fwrite(x, sizeof(real_t), nodes, f);
         fclose(f);
 
-        // // Change directory
-        // chdir("/Users/bolema/Documents/sfem/");
-        // const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
-        // "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
-        // "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
-        // "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+        // Change directory
+        chdir("/Users/bolema/Documents/sfem/");
+        const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
+        "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
+        "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+        "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
 
-        // // Execute the command
-        // int ret = system(command);
-        // if (ret == -1) {
-        //     perror("system() call failed");
-        // }
+        // Execute the command
+        int ret = system(command);
+        if (ret == -1) {
+            perror("system() call failed");
+        }
 
         // Check for convergence
         if (norm_r < 1e-8)
