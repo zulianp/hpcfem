@@ -1044,10 +1044,10 @@ int main(void)
 
         // printf("nodes: %d coords: %d\n", nodes, num_coords);
 
-        //     // Write the result to construct the VTK file
-        //     FILE *f = fopen("solution.raw", "wb");
-        //     fwrite(x, sizeof(real_t), nodes, f);
-        //     fclose(f);
+        // Write the result to construct the VTK file
+        FILE *f = fopen("solution.raw", "wb");
+        fwrite(x, sizeof(real_t), nodes, f);
+        fclose(f);
 
         // // Change directory
         // chdir("/Users/bolema/Documents/sfem/");
