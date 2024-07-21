@@ -139,7 +139,7 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
       z1 - z0, z2 - z0, z3 - z0
   };
 
-  // print_matrix(J, 3, 3);
+  print_matrix(J, 3, 3);
 
   assert(determinant(J, 3) > 0);
 #endif
@@ -633,21 +633,21 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
                     int layer_items = (level - i) * (level - i - 1) / 2;
                     /*
                     e0 = p
-                    e1 = p+level-i-j-1
-                    e2 = p-i-j-1+layer_items+level
-                    e3 = p+level-i-j-1+layer_items+level-i-j-1
+                    e1 = p+layer_items+level-i
+                    e2 = p+layer_items+level-i-j+level-i
+                    e3 = p+layer_items+level-i-j+level-i-1
                     */
                     int e0 = p;
-                    int e1 = p + level - i - j - 1;
-                    int e2 = p + layer_items + level - i - j - 1;
-                    int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+                    int e1 = p + layer_items + level - i;
+                    int e2 = p + layer_items + level - i - j + level - i;
+                    int e3 = p + layer_items + level - i - j + level - i - 1;
 
                     // printf("Fifth: %d %d %d %d\n", e0, e1, e2, e3);
 
                     micro_tets[local_iter][0] = dofs[e0];
-                    micro_tets[local_iter][1] = dofs[e2];
-                    micro_tets[local_iter][2] = dofs[e1];
-                    micro_tets[local_iter][3] = dofs[e3];
+                    micro_tets[local_iter][1] = dofs[e1];
+                    micro_tets[local_iter][2] = dofs[e3];
+                    micro_tets[local_iter][3] = dofs[e2];
                     local_iter += 1;
 
                     i0[global_iter] = e0;
@@ -968,7 +968,7 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
     *rhs = (real_t *)malloc(num_nodes * sizeof(real_t));
     *x = (real_t *)malloc(num_nodes * sizeof(real_t));
 
-    *num_dirichlet_nodes = 2; // Example number
+    *num_dirichlet_nodes = 2;
     *dirichlet_nodes = (int *)malloc((*num_dirichlet_nodes) * sizeof(int));
     (*dirichlet_nodes)[0] = 0;
     (*dirichlet_nodes)[1] = num_nodes - 1;
@@ -1025,12 +1025,8 @@ int main(void)
 
     printf("Number of coordinate triplets: %d, Number of nodes: %d\n", num_coords, nodes);
 
-    // Check the length of x_coords and x
-    if (nodes != num_coords)
-    {
-        printf("Error: The number of coordinates does not match the number of nodes.\n");
-        return 1;
-    }
+    // Check the length of nodes against the length of x_coords
+    assert(nodes == num_coords);
 
     // Maximum number of iterations
     int max_iters = 1;
