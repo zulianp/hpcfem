@@ -334,7 +334,7 @@ void compute_A(real_t *p0, real_t *p1, real_t *p2, real_t *p3, real_t *A)
 void gather_and_scatter(int **micro_tets, int num_micro_tets, real_t *x_coords, real_t *y_coords, real_t *z_coords, real_t *vecX, real_t *vecY)
 {
     // pick a random micro tetrahedron
-    int *e0 = micro_tets[num_micro_tets - 1];
+    int *e0 = micro_tets[0]; // num_micro_tets - 1
     // real_t p0[3] = {x_coords[e0[0]], y_coords[e0[0]], z_coords[e0[0]]};
     // real_t p1[3] = {x_coords[e0[1]], y_coords[e0[1]], z_coords[e0[1]]};
     // real_t p2[3] = {x_coords[e0[2]], y_coords[e0[2]], z_coords[e0[2]]};
@@ -376,7 +376,7 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
     int *dofs = (int *)malloc(nodes * sizeof(int));
     // int global_iter = 0;
 
-    printf("Creating i0-i3 each containing %d micro tets\n", tets);
+    // printf("Creating i0-i3 each containing %d micro tets\n", tets);
 
     int *i0 = (int *)malloc(tets * sizeof(int));
     int *i1 = (int *)malloc(tets * sizeof(int));
@@ -718,25 +718,25 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
         // printf("Gathering category 6, processed %d tets\n", local_iter);
         gather_and_scatter(micro_tets, local_iter, x_coords, y_coords, z_coords, vecX, vecY);
 
-        FILE *f = fopen("i0.raw", "wb");
-        fwrite(i0, sizeof(int32_t), tets, f);
-        fclose(f);
+        // FILE *f = fopen("i0.raw", "wb");
+        // fwrite(i0, sizeof(int32_t), tets, f);
+        // fclose(f);
 
-        f = fopen("i1.raw", "wb");
-        fwrite(i1, sizeof(int32_t), tets, f);
-        fclose(f);
+        // f = fopen("i1.raw", "wb");
+        // fwrite(i1, sizeof(int32_t), tets, f);
+        // fclose(f);
 
-        f = fopen("i2.raw", "wb");
-        fwrite(i2, sizeof(int32_t), tets, f);
-        fclose(f);
+        // f = fopen("i2.raw", "wb");
+        // fwrite(i2, sizeof(int32_t), tets, f);
+        // fclose(f);
 
-        f = fopen("i3.raw", "wb");
-        fwrite(i3, sizeof(int32_t), tets, f);
-        fclose(f);
+        // f = fopen("i3.raw", "wb");
+        // fwrite(i3, sizeof(int32_t), tets, f);
+        // fclose(f);
 
-        f = fopen("category.raw", "wb");
-        fwrite(category, sizeof(real_t), tets, f);
-        fclose(f);
+        // f = fopen("category.raw", "wb");
+        // fwrite(category, sizeof(real_t), tets, f);
+        // fclose(f);
 
         // Free memory for micro_tets
         for (int i = 0; i < tets; i++)
@@ -978,7 +978,7 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
 
 int main(void)
 {
-    int tetra_level = 6;
+    int tetra_level = 8;
 
     // Compute the number of nodes
     int nodes = compute_nodes_number(tetra_level);
@@ -1015,8 +1015,8 @@ int main(void)
     }
 
     // Maximum number of iterations
-    int max_iters = 1;
-    real_t gamma = 8 * 1e-1;
+    int max_iters = 100000;
+    real_t gamma = 1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
 
@@ -1042,22 +1042,25 @@ int main(void)
             x[j] += gamma * r[j];
         }
 
-        printf("nodes: %d coords: %d\n", nodes, num_coords);
+        // printf("nodes: %d coords: %d\n", nodes, num_coords);
 
-            // Write the result to construct the VTK file
-            FILE *f = fopen("solution.raw", "wb");
-            fwrite(x, sizeof(real_t), nodes, f);
-            fclose(f);
+        //     // Write the result to construct the VTK file
+        //     FILE *f = fopen("solution.raw", "wb");
+        //     fwrite(x, sizeof(real_t), nodes, f);
+        //     fclose(f);
 
-        // Change directory
-        chdir("/Users/bolema/Documents/sfem/");
-        const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk -c /Users/bolema/Documents/hpcfem/a64fx/category.raw -p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+        // // Change directory
+        // chdir("/Users/bolema/Documents/sfem/");
+        // const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
+        // "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
+        // "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+        // "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
 
-        // Execute the command
-        int ret = system(command);
-        if (ret == -1) {
-            perror("system() call failed");
-        }
+        // // Execute the command
+        // int ret = system(command);
+        // if (ret == -1) {
+        //     perror("system() call failed");
+        // }
 
         // Check for convergence
         if (norm_r < 1e-8)
