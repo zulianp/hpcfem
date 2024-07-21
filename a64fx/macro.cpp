@@ -120,11 +120,9 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
                             const real_t y3, const real_t z0, const real_t z1,
                             const real_t z2, const real_t z3) {
 #ifndef NDEBUG
-  real_t J[9] = {
-      x1 - x0, x2 - x0, x3 - x0, //
-      y1 - y0, y2 - y0, y3 - y0, //
-      z1 - z0, z2 - z0, z3 - z0
-  };
+  real_t J[9] = {x1 - x0, x2 - x0, x3 - x0, //
+                 y1 - y0, y2 - y0, y3 - y0, //
+                 z1 - z0, z2 - z0, z3 - z0};
 
   print_matrix(J, 3, 3);
 
@@ -288,34 +286,29 @@ void gather_and_scatter(int **micro_tets, int num_micro_tets, geom_t *x_coords,
 
 // GOAL
 void static inline assemble_macro_elem_subparametric(
-    const ptrdiff_t eid,
-    const ptrdiff_t jacobian_stride,
-    const geom_t *const jacobian,
-    const ptrdiff_t vec_stride,
-    const real_t *const vecX, 
-    real_t *const vecY)
-{
-    // how you Access the jacobian
-    // jacobian[0 * jacobian_stride];
-    // jacobian[1 * jacobian_stride];
-    // jacobian[2 * jacobian_stride];
-    // jacobian[3 * jacobian_stride];
-    // jacobian[4 * jacobian_stride];
-    // jacobian[5 * jacobian_stride];
-    // jacobian[6 * jacobian_stride];
-    // jacobian[7 * jacobian_stride];
-    // jacobian[8 * jacobian_stride];
+    const ptrdiff_t eid, const ptrdiff_t jacobian_stride,
+    const geom_t *const jacobian, const ptrdiff_t vec_stride,
+    const real_t *const vecX, real_t *const vecY) {
+  // how you Access the jacobian
+  // jacobian[0 * jacobian_stride];
+  // jacobian[1 * jacobian_stride];
+  // jacobian[2 * jacobian_stride];
+  // jacobian[3 * jacobian_stride];
+  // jacobian[4 * jacobian_stride];
+  // jacobian[5 * jacobian_stride];
+  // jacobian[6 * jacobian_stride];
+  // jacobian[7 * jacobian_stride];
+  // jacobian[8 * jacobian_stride];
 
-    // loop on all sub elements p0 = [0, 0, 0], p1 = J[:,0], ....
+  // loop on all sub elements p0 = [0, 0, 0], p1 = J[:,0], ....
 
-    // TODO:
-    // 1) Identify indexing per category
-    // 2) From jacobian create sub-jacobian for category
-    //    -> J_category = J * J_ref_category
+  // TODO:
+  // 1) Identify indexing per category
+  // 2) From jacobian create sub-jacobian for category
+  //    -> J_category = J * J_ref_category
 
-    // vecX[maco_element_node_idx * vec_stride] 
-    // vecY[maco_element_node_idx * vec_stride] 
-
+  // vecX[maco_element_node_idx * vec_stride]
+  // vecY[maco_element_node_idx * vec_stride]
 }
 
 // nxe nodes_per_element
@@ -345,11 +338,10 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
 
     int num_tets = (level * (level + 1) * (level + 2)) / 6;
     int num_coords = num_tets * 4;
-    
 
     int **micro_tets = (int **)malloc(num_coords * sizeof(int *));
     for (int i = 0; i < num_coords; i++) {
-      micro_tets[i] = (int *)calloc(4,  sizeof(int));
+      micro_tets[i] = (int *)calloc(4, sizeof(int));
     }
 
     int p = 0;
@@ -448,11 +440,10 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
       }
     }
     micro_tets_iter = 0;
-    
-    // Harcode ref_jacobian of category 
-    // ( G(p) = G2(G1(p)), chain rule. Special case Affine transform: A2 * (A1 * p + b1 ) + b2 = A2*A1*p + c)
-    // J_c = J * J_ref_c 
-    // assemble A
+
+    // Harcode ref_jacobian of category
+    // ( G(p) = G2(G1(p)), chain rule. Special case Affine transform: A2 * (A1 *
+    // p + b1 ) + b2 = A2*A1*p + c) J_c = J * J_ref_c assemble A
 
     // tet4_laplacian_hessian(element_matrix, 0,
     //                            J_c[0*3+0],  J_c[0*3+1], x3,
@@ -478,12 +469,13 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
 
           // TODOS
           // 1) Gather (CPU stride = nxe, element_stride = 1)
-          // 2) Gather (GPU stride = 1, element_stride = n_macro_elements, true only if: 1 macro element per GPU thread)
-          // NOTSURE) Gather (Tensor cores TODO!)
-          // real_t x0 = vecX[threadId * stride + e0 * element_stride];
-          // real_t x1 = vecX[threadId * stride + e1 * element_stride];
-          // real_t x2 = vecX[threadId * stride + e2 * element_stride];
-          // real_t x3 = vecX[threadId * stride + e3 * element_stride];
+          // 2) Gather (GPU stride = 1, element_stride = n_macro_elements, true
+          // only if: 1 macro element per GPU thread) NOTSURE) Gather (Tensor
+          // cores TODO!) real_t x0 = vecX[threadId * stride + e0 *
+          // element_stride]; real_t x1 = vecX[threadId * stride + e1 *
+          // element_stride]; real_t x2 = vecX[threadId * stride + e2 *
+          // element_stride]; real_t x3 = vecX[threadId * stride + e3 *
+          // element_stride];
 
           // const real_t y0 = A00 * x0 + A01 * x1 + A02 * x2 + A00 * x3
           // const real_t y1 = A10 * x0 + A11 * x1 + A12 * x2 + A10 * x3
@@ -491,10 +483,10 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           // const real_t y3 = A30 * x0 + A31 * x1 + A32 * x2 + A30 * x3
 
           // Scatter
-          // vecY[threadId * stride + e0 * element_stride] += y0 
-          // vecY[threadId * stride + e1 * element_stride] += y1 
-          // vecY[threadId * stride + e2 * element_stride] += y2 
-          // vecY[threadId * stride + e3 * element_stride] += y3 
+          // vecY[threadId * stride + e0 * element_stride] += y0
+          // vecY[threadId * stride + e1 * element_stride] += y1
+          // vecY[threadId * stride + e2 * element_stride] += y2
+          // vecY[threadId * stride + e3 * element_stride] += y3
 
           // REMOVE ME This stuff we do not need
           micro_tets[micro_tets_iter][0] = dofs[e0];
@@ -505,7 +497,6 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           i1[micro_tets_iter] = e1;
           i2[micro_tets_iter] = e2;
           i3[micro_tets_iter] = e3;
-
 
           micro_tets_iter += 1;
 
@@ -925,10 +916,12 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x,
   }
 }
 
-
-// cc -g -Wall  -fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g  macro.cpp && ./a.out
-// cc -g -Wall  -fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g  macro.cpp && lldb -- ./a.out
-// -DNDEBUG for removing assertion checking (high-performance/production runs)
+// cc -g -Wall  -fsanitize=address -fno-optimize-sibling-calls
+// -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g  macro.cpp &&
+// ./a.out cc -g -Wall  -fsanitize=address -fno-optimize-sibling-calls
+// -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g  macro.cpp &&
+// lldb -- ./a.out -DNDEBUG for removing assertion checking
+// (high-performance/production runs)
 int main(void) {
   int tetra_level = 4;
 
@@ -988,6 +981,39 @@ int main(void) {
     // Update x
     for (int j = 0; j < nodes; j++) {
       x[j] += gamma * r[j];
+
+      // printf("nodes: %d coords: %d\n", nodes, num_coords);
+
+      // Write the result to construct the VTK file
+      FILE *f = fopen("solution.raw", "wb");
+      fwrite(x, sizeof(real_t), nodes, f);
+      fclose(f);
+
+      // // Change directory
+      // chdir("/Users/bolema/Documents/sfem/");
+      // const char *command = "source venv/bin/activate && cd python/sfem/mesh/
+      // && " "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx
+      // /Users/bolema/Documents/hpcfem/a64fx/test.vtk "
+      // "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+      // "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+
+      // // Execute the command
+      // int ret = system(command);
+      // if (ret == -1) {
+      //     perror("system() call failed");
+      // }
+
+      // Check for convergence
+      if (norm_r < 1e-8) {
+        printf("Converged after %d iterations\nSolution:", i + 1);
+        for (int k = 0; k < nodes; k++) {
+          printf("%lf \n", x[k]);
+        }
+        printf("\n");
+
+        free(r);
+        break;
+      }
     }
 
     // Check for convergence

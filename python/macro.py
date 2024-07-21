@@ -514,8 +514,12 @@ def main() :
 # Example usage
 if __name__ == "__main__":
     main()
-    os.chdir("/Users/bolema/Documents/sfem/")
-    os.system("source venv/bin/activate && cd python/sfem/mesh/ && python3 raw_to_db.py /Users/bolema/Documents/hpcfem/python /Users/bolema/Documents/hpcfem/mesh.vtk -c /Users/bolema/Documents/hpcfem/python/category.raw -p /Users/bolema/Documents/hpcfem/python/solution.raw")
+    SFEM_DIR = os.getenv("SFEM_DIR")
+    if SFEM_DIR == None:
+        print("ERROR: Define SFEM_DIR")
+        exit(1)
+
+    os.system(f"source {SFEM_DIR}/venv/bin/activate && python3 {SFEM_DIR}/python/sfem/mesh/raw_to_db.py . mesh.vtk -c category.raw -p solution.raw")
 
 # nodes = 2**(level+1) * macro_tets
 # what about shared faces?
