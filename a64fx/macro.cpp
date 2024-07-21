@@ -477,8 +477,9 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes,
           int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
 
           // TODOS
-          // Gather (CPU stride = nxe, element_stride = 1)
-          // Gather (GPU stride = 1, element_stride = n_macro_elements)
+          // 1) Gather (CPU stride = nxe, element_stride = 1)
+          // 2) Gather (GPU stride = 1, element_stride = n_macro_elements, true only if: 1 macro element per GPU thread)
+          // NOTSURE) Gather (Tensor cores TODO!)
           // real_t x0 = vecX[threadId * stride + e0 * element_stride];
           // real_t x1 = vecX[threadId * stride + e1 * element_stride];
           // real_t x2 = vecX[threadId * stride + e2 * element_stride];
