@@ -8,6 +8,8 @@
 #define MAX_NODES 100000
 #define POW2(x) ((x) * (x))
 
+#define GENERATE_VTK
+
 typedef double real_t;
 typedef float geom_t;
 
@@ -719,6 +721,7 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
         // printf("Gathering category 6, processed %d tets\n", local_iter);
         gather_and_scatter(micro_tets, local_iter, x_coords, y_coords, z_coords, vecX, vecY);
 
+#ifdef GENERATE_VTK
         FILE *f = fopen("i0.raw", "wb");
         fwrite(i0, sizeof(int32_t), tets, f);
         fclose(f);
@@ -738,6 +741,7 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
         f = fopen("category.raw", "wb");
         fwrite(category, sizeof(real_t), tets, f);
         fclose(f);
+#endif
 
         // Free memory for micro_tets
         for (int i = 0; i < tets; i++)
@@ -911,6 +915,7 @@ int generate_coords(int tetra_level, geom_t *x_coords, geom_t *y_coords, geom_t 
         }
     }
 
+#ifdef GENERATE_VTK
     FILE *f = fopen("x.raw", "wb");
     fwrite(x_coords, sizeof(geom_t), node_index, f);
     fclose(f);
@@ -922,6 +927,7 @@ int generate_coords(int tetra_level, geom_t *x_coords, geom_t *y_coords, geom_t 
     f = fopen("z.raw", "wb");
     fwrite(z_coords, sizeof(geom_t), node_index, f);
     fclose(f);
+#endif
 
     return node_index;
 }
@@ -975,6 +981,16 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
         (*rhs)[idx] = dirichlet_values[i];
         (*x)[idx] = dirichlet_values[i];
     }
+
+#ifdef GENERATE_VTK
+    FILE *f = fopen("dirichlet_nodes.raw", "wb");
+    fwrite(*dirichlet_nodes, sizeof(int), *num_dirichlet_nodes, f);
+    fclose(f);
+
+    f = fopen("dirichlet_values.raw", "wb");
+    fwrite(dirichlet_values, sizeof(real_t), *num_dirichlet_nodes, f);
+    fclose(f);    
+#endif
 }
 
 int main(void)
@@ -1006,6 +1022,7 @@ int main(void)
 
     // Set boundary conditions
     set_boundary_conditions(nodes, &rhs, &x, &dirichlet_nodes, &num_dirichlet_nodes);
+
     printf("Number of coordinate triplets: %d, Number of nodes: %d\n", num_coords, nodes);
 
     // Check the length of x_coords and x
@@ -1017,7 +1034,7 @@ int main(void)
 
     // Maximum number of iterations
     int max_iters = 1;
-    real_t gamma = 1e-1;
+    real_t gamma = 8*1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
 
@@ -1045,6 +1062,7 @@ int main(void)
 
         // printf("nodes: %d coords: %d\n", nodes, num_coords);
 
+#ifdef GENERATE_VTK
         // Write the result to construct the VTK file
         FILE *f = fopen("solution.raw", "wb");
         fwrite(x, sizeof(real_t), nodes, f);
@@ -1062,6 +1080,7 @@ int main(void)
         if (ret == -1) {
             perror("system() call failed");
         }
+#endif
 
         // Check for convergence
         if (norm_r < 1e-8)
