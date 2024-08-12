@@ -58,6 +58,22 @@ real_t determinant_3x3(real_t *m) {
     return det;
 }
 
+real_t inverse_3x3(real_t *m, real_t *m_inv)
+{
+    real_t det_inv = 1.0 / determinant_3x3(m);
+    real_t m_inv; // inverse of matrix m
+
+    m_inv[0*3+0] = (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) * det_inv;
+    m_inv[0*3+1] = (m[0*3+2] * m[2*3+1] - m[0*3+1] * m[2*3+2]) * det_inv;
+    m_inv[0*3+2] = (m[0*3+1] * m[1*3+2] - m[0*3+2] * m[1*3+1]) * det_inv;
+    m_inv[1*3+0] = (m[1*3+2] * m[2*3+0] - m[1*3+0] * m[2*3+2]) * det_inv;
+    m_inv[1*3+1] = (m[0*3+0] * m[2*3+2] - m[0*3+2] * m[2*3+0]) * det_inv;
+    m_inv[1*3+2] = (m[1*3+0] * m[0*3+2] - m[0*3+0] * m[1*3+2]) * det_inv;
+    m_inv[2*3+0] = (m[1*3+0] * m[2*3+1] - m[2*3+0] * m[1*3+1]) * det_inv;
+    m_inv[2*3+1] = (m[2*3+0] * m[0*3+1] - m[0*3+0] * m[2*3+1]) * det_inv;
+    m_inv[2*3+2] = (m[0*3+0] * m[1*3+1] - m[1*3+0] * m[0*3+1]) * det_inv;
+}
+
 void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t *vecX, real_t *vecY) {
     real_t J_inv[9];
     real_t J_inv_trans[9];
@@ -138,7 +154,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         assert(determinant_3x3(mat_J) > 0);
     }
 
-    matrix_inverse(mat_J, J_inv, 3);
+    inverse_3x3(mat_J, J_inv);
 
     // Transpose J_inv
     for (int i = 0; i < 3; i++) {
