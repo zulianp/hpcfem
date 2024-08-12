@@ -33,8 +33,8 @@ real_t determinant_3x3(real_t *m) {
     double det = m[0*3+0] * (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) -
         m[0*3+1] * (m[1*3+0] * m[2*3+2] - m[1*3+2] * m[2*3+0]) +
         m[0*3+2] * (m[1*3+0] * m[2*3+1] - m[1*3+1] * m[2*3+0]);
-    print_matrix(m, 3, 3);
-    printf("det(m) = %lf\n", det);
+    // print_matrix(m, 3, 3);
+    // printf("det(m) = %lf\n", det);
     return det;
 }
 
@@ -1333,7 +1333,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 2;
+    int max_iters = 100;
     real_t gamma = 8*1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
