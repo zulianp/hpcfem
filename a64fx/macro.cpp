@@ -58,7 +58,7 @@ real_t determinant_3x3(real_t *m) {
     return det;
 }
 
-real_t inverse_3x3(real_t *m, real_t *m_inv)
+void inverse_3x3(real_t *m, real_t *m_inv)
 {
     real_t det_inv = 1.0 / determinant_3x3(m);
 
