@@ -15,8 +15,6 @@
 typedef double real_t;
 typedef float geom_t;
 
-void matrix_inverse(real_t *A, real_t *invA, int n);
-
 void print_matrix(real_t *matrix, int rows, int cols)
 {
     for (int i = 0; i < rows; i++)
@@ -28,24 +26,6 @@ void print_matrix(real_t *matrix, int rows, int cols)
         printf("\n");
     }
     printf("\n");
-}
-real_t determinant(real_t *A, int n)
-{
-    int i, j, k;
-    real_t det = 1.0;
-    for (i = 0; i < n; i++)
-    {
-        for (j = i + 1; j < n; j++)
-        {
-            real_t ratio = A[j * n + i] / A[i * n + i];
-            for (k = i; k < n; k++)
-            {
-                A[j * n + k] -= ratio * A[i * n + k];
-            }
-        }
-        det *= A[i * n + i];
-    }
-    return det;
 }
 
 real_t determinant_3x3(real_t *m) {
@@ -500,7 +480,7 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
 
   // print_matrix(J, 3, 3);
 
-  assert(determinant(J, 3) > 0);
+  assert(determinant_3x3(J) > 0);
 #endif
 
   real_t fff[6];
@@ -617,68 +597,13 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
 //     free(work);
 // }
 
-void matrix_inverse(real_t *A, real_t *invA, int n)
-{
-    int i, j, k;
-    real_t ratio;
-
-    // Create an augmented matrix [A|I]
-    real_t augmented[n][2 * n];
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            augmented[i][j] = A[i * n + j];
-            augmented[i][j + n] = (i == j) ? 1.0 : 0.0;
-        }
-    }
-
-    // Apply Gauss-Jordan elimination
-    for (i = 0; i < n; i++)
-    {
-        // Make the diagonal element 1
-        ratio = augmented[i][i];
-        if (ratio == 0)
-        {
-            printf("Matrix is singular and cannot be inverted.\n");
-            return;
-        }
-        for (j = 0; j < 2 * n; j++)
-        {
-            augmented[i][j] /= ratio;
-        }
-
-        // Make the other elements in the current column 0
-        for (k = 0; k < n; k++)
-        {
-            if (k != i)
-            {
-                ratio = augmented[k][i];
-                for (j = 0; j < 2 * n; j++)
-                {
-                    augmented[k][j] -= ratio * augmented[i][j];
-                }
-            }
-        }
-    }
-
-    // Extract the inverse matrix from the augmented matrix
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            invA[i * n + j] = augmented[i][j + n];
-        }
-    }
-}
-
 real_t tetrahedron_volume(real_t *A, real_t *B, real_t *C, real_t *D)
 {
     real_t mat[9] = {
         B[0] - A[0], C[0] - A[0], D[0] - A[0],
         B[1] - A[1], C[1] - A[1], D[1] - A[1],
         B[2] - A[2], C[2] - A[2], D[2] - A[2]};
-    real_t det = determinant(mat, 3);
+    real_t det = determinant_3x3(mat);
     return det / 6.0;
 }
 
@@ -690,7 +615,7 @@ void compute_A(real_t *p0, real_t *p1, real_t *p2, real_t *p3, real_t *A)
         A[3 + i] = p2[i] - p0[i];
         A[6 + i] = p3[i] - p0[i];
     }
-    assert(determinant(A, 3) > 0);
+    assert(determinant_3x3(A) > 0);
 }
 
 void gather_and_scatter(int **micro_tets, int num_micro_tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX, real_t *vecY)
