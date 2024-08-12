@@ -1333,9 +1333,9 @@ int main(void)
 
     real_t macro_J[9];
     real_t p0[3] = {0, 0, 0};
-    real_t p1[3] = {0, 0, 1};
+    real_t p1[3] = {1, 0, 0};
     real_t p2[3] = {0, 1, 0};
-    real_t p3[3] = {1, 0, 0};
+    real_t p3[3] = {0, 0, 1};
     compute_A(p0, p1, p2, p3, macro_J);
 
     // Generate coordinates
