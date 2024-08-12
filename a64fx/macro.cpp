@@ -193,7 +193,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
             for (int k = 0; k < 3; k++) {
                 dot_product += grad_phi[i][k] * grad_phi[j][k];
             }
-            local_M[i * 4 + j] = dot_product * determinant(mat_J, 3) / 6.0;
+            local_M[i * 4 + j] = dot_product * determinant_3x3(mat_J) / 6.0;
         }
     }
 
@@ -219,6 +219,8 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(local_M[i * 4 + j]));
+                            assert(!isnan(vecX[es[i]]));
                             assert(!isnan(vecY[es[j]]));
                         }
                     }
