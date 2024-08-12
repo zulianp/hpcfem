@@ -219,6 +219,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
                     p++;
@@ -248,6 +249,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
 
@@ -280,6 +282,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
 
@@ -311,6 +314,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
 
@@ -343,6 +347,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
                     // printf("Fifth: %d %d %d %d\n", e0, e1, e2, e3);
@@ -373,6 +378,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                            assert(!isnan(vecY[es[j]]));
                         }
                     }
                     // printf("Sixth: %d %d %d %d\n", e0, e1, e2, e3);
