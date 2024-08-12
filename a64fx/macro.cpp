@@ -1318,7 +1318,7 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
 
 int main(void)
 {
-    int tetra_level = 8;
+    int tetra_level = 4;
 
     // Compute the number of nodes
     int nodes = compute_nodes_number(tetra_level);
@@ -1359,7 +1359,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 100000;
+    int max_iters = 2;
     real_t gamma = 8*1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
