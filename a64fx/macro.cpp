@@ -48,6 +48,16 @@ real_t determinant(real_t *A, int n)
     return det;
 }
 
+real_t determinant_3x3(real_t *m) {
+    // computes the inverse of a matrix m
+    double det = m[0*3+0] * (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) -
+        m[0*3+1] * (m[1*3+0] * m[2*3+2] - m[1*3+2] * m[2*3+0]) +
+        m[0*3+2] * (m[1*3+0] * m[2*3+1] - m[1*3+1] * m[2*3+0]);
+    print_matrix(m, 3, 3);
+    printf("det(m) = %lf\n", det);
+    return det;
+}
+
 void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t *vecX, real_t *vecY) {
     real_t J_inv[9];
     real_t J_inv_trans[9];
@@ -65,8 +75,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                 mat_J[i * 3 + j] = macro_J[i * 3 + j] / level;
             }
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     } else if (category == 1) {
         // [-u + w | w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -78,8 +87,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     } else if (category == 2) {
         // [v | -u + v + w | w]
         for (int i = 0; i < 3; i++) {
@@ -91,8 +99,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (w[i]) / level;
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     } else if (category == 3) {
         // [-u + v | -u + w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -104,8 +111,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     } else if (category == 4) {
         // [-v + w | w | -u + w]
         for (int i = 0; i < 3; i++) {
@@ -117,8 +123,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + w[i]) / level;
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     } else if (category == 5) {
         // [-u + v | -u + v + w | v]
         for (int i = 0; i < 3; i++) {
@@ -130,8 +135,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (v[i]) / level;
         }
-        print_matrix(mat_J, 3, 3);
-        assert(determinant(mat_J, 3) > 0);
+        assert(determinant_3x3(mat_J) > 0);
     }
 
     matrix_inverse(mat_J, J_inv, 3);
