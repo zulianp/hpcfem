@@ -65,6 +65,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                 mat_J[i * 3 + j] = macro_J[i * 3 + j] / level;
             }
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     } else if (category == 1) {
         // [-u + w | w | -u + v + w]
@@ -77,6 +78,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     } else if (category == 2) {
         // [v | -u + v + w | w]
@@ -89,6 +91,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (w[i]) / level;
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     } else if (category == 3) {
         // [-u + v | -u + w | -u + v + w]
@@ -101,6 +104,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     } else if (category == 4) {
         // [-v + w | w | -u + w]
@@ -113,6 +117,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (-u[i] + w[i]) / level;
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     } else if (category == 5) {
         // [-u + v | -u + v + w | v]
@@ -125,6 +130,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         for (int i = 0; i < 3; i++) {
             mat_J[i * 3 + 2] = (v[i]) / level;
         }
+        print_matrix(mat_J, 3, 3);
         assert(determinant(mat_J, 3) > 0);
     }
 
