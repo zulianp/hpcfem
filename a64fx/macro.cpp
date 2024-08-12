@@ -1333,7 +1333,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 100;
+    int max_iters = 10000;
     real_t gamma = 8*1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
