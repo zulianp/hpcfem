@@ -1292,7 +1292,7 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
 
 int main(void)
 {
-    int tetra_level = 4;
+    int tetra_level = 8;
 
     // Compute the number of nodes
     int nodes = compute_nodes_number(tetra_level);
