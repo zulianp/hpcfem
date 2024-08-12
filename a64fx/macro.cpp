@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include <math.h>
 #include <unistd.h>
 #include <assert.h>
@@ -8,7 +10,7 @@
 #define MAX_NODES 100000
 #define POW2(x) ((x) * (x))
 
-#define GENERATE_VTK
+// #define GENERATE_VTK
 
 typedef double real_t;
 typedef float geom_t;
@@ -44,6 +46,314 @@ real_t determinant(real_t *A, int n)
         det *= A[i * n + i];
     }
     return det;
+}
+
+void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t *vecX, real_t *vecY) {
+    real_t J_inv[9];
+    real_t J_inv_trans[9];
+    real_t mat_J[9];
+
+    // have to match the row/col order of compute_A
+    real_t u[3] = {macro_J[0], macro_J[1], macro_J[2]};
+    real_t v[3] = {macro_J[3], macro_J[4], macro_J[5]};
+    real_t w[3] = {macro_J[6], macro_J[7], macro_J[8]};
+
+    if (category == 0) {
+        // [u | v | w]
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                mat_J[i * 3 + j] = macro_J[i * 3 + j] / level;
+            }
+        }
+    } else if (category == 1) {
+        // [-u + w | w | -u + v + w]
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 0] = (-u[i] + w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 1] = (w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
+        }
+    } else if (category == 2) {
+        // [v | -u + v + w | w]
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 0] = v[i] / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 2] = (w[i]) / level;
+        }
+    } else if (category == 3) {
+        // [-u + v | -u + w | -u + v + w]
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 0] = (-u[i] + v[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 1] = (-u[i] + w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / level;
+        }
+    } else if (category == 4) {
+        // [-v + w | w | -u + w]
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 0] = (-v[i] + w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 1] = (w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 2] = (-u[i] + w[i]) / level;
+        }
+    } else if (category == 5) {
+        // [-u + v | -u + v + w | v]
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 0] = (-u[i] + v[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / level;
+        }
+        for (int i = 0; i < 3; i++) {
+            mat_J[i * 3 + 2] = (v[i]) / level;
+        }
+    }
+
+    matrix_inverse(mat_J, J_inv, 3);
+
+    // Transpose J_inv
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            J_inv_trans[i * 3 + j] = J_inv[j * 3 + i];
+        }
+    }
+
+    real_t grad_ref_phi[4][3] = {
+        {-1, -1, -1},
+        {1, 0, 0},
+        {0, 1, 0},
+        {0, 0, 1}
+    };
+
+    real_t local_M[16] = {0};
+    // real_t mat_A[4][4] = {
+    //     {0, 0, 0, 0},
+    //     {0, 0, 0, 0},
+    //     {0, 0, 0, 0},
+    //     {0, 0, 0, 0}
+    // };
+
+    real_t grad_phi[4][3];
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 3; j++) {
+            grad_phi[i][j] = 0;
+            for (int k = 0; k < 3; k++) {
+                grad_phi[i][j] += J_inv_trans[j * 3 + k] * grad_ref_phi[i][k];
+            }
+        }
+    }
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            real_t dot_product = 0;
+            for (int k = 0; k < 3; k++) {
+                dot_product += grad_phi[i][k] * grad_phi[j][k];
+            }
+            local_M[i * 4 + j] = dot_product * determinant(mat_J, 3) / 6.0;
+        }
+    }
+
+    if (category == 0)
+    {
+        int p = 0;
+        for (int i = 0; i < level - 1; i++)
+        {
+            int layer_items = (level - i + 1) * (level - i) / 2;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                for (int k = 0; k < level - i - j - 1; k++)
+                {
+                    int e0 = p;
+                    int e1 = p + 1;
+                    int e2 = p + level - i - j;
+                    int e3 = p + layer_items - j;
+
+                    int es[4] = {e0, e1, e2, e3};
+
+                    // printf("First: %d %d %d %d\n", e0, e1, e2, e3);
+
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    } else if (category == 1) {
+        // Second case
+        int p = 0;
+        for (int i = 0; i < level - 1; i++)
+        {
+            int layer_items = (level - i) * (level - i - 1) / 2;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                p++;
+                for (int k = 1; k < level - i - j - 1; k++)
+                {
+                    int e0 = p;
+                    int e1 = p + layer_items + level - i - j - 1;
+                    int e2 = p + layer_items + level - i - j;
+                    int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+                    int es[4] = {e0, e1, e2, e3};
+
+                    // printf("Second: %d %d %d %d\n", e0, e1, e2, e3);
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    } else if (category == 2) {
+        // Third case
+        int p = 0;
+
+        for (int i = 0; i < level - 1; i++)
+        {
+            int layer_items = (level - i) * (level - i - 1) / 2;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                p++;
+                for (int k = 1; k < level - i - j - 1; k++)
+                {
+                    int e0 = p;
+                    int e1 = p + level - i - j;
+                    int e3 = p + layer_items + level - i - j;
+                    int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+                    int es[4] = {e0, e1, e2, e3};
+
+                    // printf("Third: %d %d %d %d\n", e0, e1, e2, e3);
+
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    } else if (category == 3) {
+        // Fourth case
+        int p = 0;
+
+        for (int i = 0; i < level - 1; i++)
+        {
+            int layer_items = (level - i) * (level - i - 1) / 2;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                p++;
+                for (int k = 1; k < level - i - j - 1; k++)
+                {
+                    int e0 = p;
+                    int e1 = p + level - i - j - 1;
+                    int e2 = p + layer_items + level - i - j - 1;
+                    int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+                    int es[4] = {e0, e1, e2, e3};
+
+                    // printf("Fourth: %d %d %d %d\n", e0, e1, e2, e3);
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    } else if (category == 4) {
+
+        // Fifth case
+        int p = 0;
+
+        for (int i = 1; i < level - 1; i++)
+        {
+            p = p + level - i + 1;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                p++;
+                for (int k = 1; k < level - i - j - 1; k++)
+                {
+                    int layer_items = (level - i) * (level - i - 1) / 2;
+                    int e0 = p;
+                    int e1 = p + layer_items + level - i;
+                    int e2 = p + layer_items + level - i - j + level - i;
+                    int e3 = p + layer_items + level - i - j + level - i - 1;
+                    int es[4] = {e0, e1, e2, e3};
+
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+                    // printf("Fifth: %d %d %d %d\n", e0, e1, e2, e3);
+
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    } else if (category == 5) {
+        // Sixth case
+        int p = 0;
+        for (int i = 0; i < level - 1; i++)
+        {
+            int layer_items = (level - i) * (level - i - 1) / 2;
+            for (int j = 0; j < level - i - 1; j++)
+            {
+                p++;
+                for (int k = 1; k < level - i - j - 1; k++)
+                {
+                    int e0 = p;
+                    int e1 = p + level - i - j - 1;
+                    int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
+                    int e3 = p + level - i - j;
+                    int es[4] = {e0, e1, e2, e3};
+
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
+                        }
+                    }
+                    // printf("Sixth: %d %d %d %d\n", e0, e1, e2, e3);
+
+                    p++;
+                }
+                p++;
+            }
+            p++;
+        }
+    }
+
 }
 
 // Note: taken from Dr. Zulian's code
@@ -139,7 +449,7 @@ void tet4_laplacian_hessian(real_t *element_matrix, const real_t x0,
       z1 - z0, z2 - z0, z3 - z0
   };
 
-  print_matrix(J, 3, 3);
+  // print_matrix(J, 3, 3);
 
   assert(determinant(J, 3) > 0);
 #endif
@@ -935,14 +1245,27 @@ int generate_coords(int tetra_level, geom_t *x_coords, geom_t *y_coords, geom_t 
 real_t *apply_macro_kernel(int **in_list, int tetra_level, int nodes, int tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX)
 {
     real_t *vecY = (real_t *)malloc(nodes * sizeof(real_t *));
+    memset(vecY, 0, nodes * sizeof(real_t *));
     assemble_macro_elem(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, vecX, vecY);
     return vecY;
 }
 
-void residual(int **in_list, int tetra_level, int nodes, int tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, int *dirichlet_nodes, int num_dirichlet_nodes, real_t *rhs, real_t *x, real_t *r)
+real_t *apply_new_macro_kernel(real_t *macro_J, int tetra_level, int nodes, real_t *vecX)
+{
+    real_t *vecY = (real_t *)malloc(nodes * sizeof(real_t *));
+    memset(vecY, 0, nodes * sizeof(real_t *));
+
+    for (int category = 0; category < 6; category += 1) {
+        macro_tet4_laplacian_apply(tetra_level, category, macro_J, vecX, vecY);
+    }
+    return vecY;
+}
+
+void residual(int **in_list, real_t *macro_J, int tetra_level, int nodes, int tets, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, int *dirichlet_nodes, int num_dirichlet_nodes, real_t *rhs, real_t *x, real_t *r)
 {
     // Call apply_macro_kernel to compute Ax
-    real_t *Ax = apply_macro_kernel(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, x);
+    // real_t *Ax = apply_macro_kernel(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, x);
+    real_t *Ax = apply_new_macro_kernel(macro_J, tetra_level, nodes, x);
 
     // Apply Dirichlet boundary conditions
     for (int i = 0; i < num_dirichlet_nodes; i++)
@@ -1008,6 +1331,13 @@ int main(void)
     geom_t *y_coords = (geom_t *)malloc(nodes * sizeof(geom_t));
     geom_t *z_coords = (geom_t *)malloc(nodes * sizeof(geom_t));
 
+    real_t macro_J[9];
+    real_t p0[3] = {0, 0, 0};
+    real_t p1[3] = {0, 0, 1};
+    real_t p2[3] = {0, 1, 0};
+    real_t p3[3] = {1, 0, 0};
+    compute_A(p0, p1, p2, p3, macro_J);
+
     // Generate coordinates
     int num_coords = generate_coords(tetra_level, x_coords, y_coords, z_coords);
 
@@ -1029,7 +1359,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 1;
+    int max_iters = 100000;
     real_t gamma = 8*1e-1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
@@ -1037,7 +1367,7 @@ int main(void)
     for (int i = 0; i < max_iters; i++)
     {
         // Compute residual
-        residual(in_list, tetra_level, nodes, tets, x_coords, y_coords, z_coords, dirichlet_nodes, num_dirichlet_nodes, rhs, x, r);
+        residual(in_list, macro_J, tetra_level, nodes, tets, x_coords, y_coords, z_coords, dirichlet_nodes, num_dirichlet_nodes, rhs, x, r);
 
         // Compute the norm of r
         real_t norm_r = 0.0;
@@ -1087,6 +1417,24 @@ int main(void)
                 printf("%lf \n", x[k]);
             }
             printf("\n");
+
+            // Write the result to construct the VTK file
+            FILE *f = fopen("solution.raw", "wb");
+            fwrite(x, sizeof(real_t), nodes, f);
+            fclose(f);
+
+            // Change directory
+            chdir("/Users/bolema/Documents/sfem/");
+            const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
+            "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
+            "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+            "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+
+            // Execute the command
+            int ret = system(command);
+            if (ret == -1) {
+                perror("system() call failed");
+            }
 
             free(r);
             break;

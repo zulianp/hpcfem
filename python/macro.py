@@ -3,21 +3,29 @@ import math, os
 
 macro_tets = 1
 
+shown = [False for i in range(6)]
+
 def tetrahedron_volume(A, B, C, D):
     # Create matrix with columns as vectors AB, AC, and AD
     mat = np.array([B - A, C - A, D - A])
     volume = np.linalg.det(mat) / 6.0
     return volume
 
-def compute_A(p0, p1, p2, p3) :
+def compute_A(p0, p1, p2, p3, category=0) :
     u = p1 - p0
     v = p2 - p0
     w = p3 - p0
+
+    print(category)
 
     A = np.zeros((3, 3))
     A[:,0] = u
     A[:,1] = v
     A[:,2] = w
+
+    if not shown[category] :
+        print(A)
+        shown[category] = True
 
     ## print("A =", A, np.linalg.det(A))
     assert(np.linalg.det(A) > 0)
@@ -144,7 +152,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # print("positions:", p0, p1, p2, p3)
         
         # quadrature
-        upright_A = compute_A(p0, p1, p2, p3)
+        upright_A = compute_A(p0, p1, p2, p3, category=0)
         local_M = computeFn(upright_A)
         # scatter phase
         for i in range(0, 4) :
@@ -187,7 +195,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # .. also gather coeffs from f
         
         # quadrature
-        inverted_A = compute_A(p0, p1, p2, p3)
+        inverted_A = compute_A(p0, p1, p2, p3, category=1)
         local_M = computeFn(inverted_A)
         # scatter phase
         for i in range(0, 4) :
@@ -235,7 +243,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # .. also gather coeffs from f
         
         # quadrature
-        third_A = compute_A(p0, p1, p2, p3)
+        third_A = compute_A(p0, p1, p2, p3, category=2)
         local_M = computeFn(third_A)
         # scatter phase
         for i in range(0, 4) :
@@ -278,7 +286,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # .. also gather coeffs from f
 
         # quadrature
-        fourth_A = compute_A(p0, p1, p2, p3)
+        fourth_A = compute_A(p0, p1, p2, p3, category=3)
         local_M = computeFn(fourth_A)
         # scatter phase
         for i in range(0, 4) :
@@ -323,7 +331,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # .. also gather coeffs from f
         assert(tetrahedron_volume(p0, p1, p2, p3) > 0)
         # quadrature
-        fifth_A = compute_A(p0, p1, p2, p3)
+        fifth_A = compute_A(p0, p1, p2, p3, category=4)
         local_M = computeFn(fifth_A)
         # scatter phase
         for i in range(0, 4) :
@@ -368,7 +376,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
 
         
         # quadrature
-        sixth_A = compute_A(p0, p1, p2, p3)
+        sixth_A = compute_A(p0, p1, p2, p3, category=5)
         # compute_Lapl
         local_M = computeFn(sixth_A)
         # scatter phase
@@ -466,9 +474,9 @@ def generate_coords(tetra_level) :
     for k in range(0, tetra_level + 1):
         for j in range(0, tetra_level - k + 1):
             for i in range(0, tetra_level - j - k + 1):
-                x_coords.append(i / tetra_level)
-                y_coords.append(j / tetra_level)
-                z_coords.append(k / tetra_level)
+                x_coords.append(3 * i / tetra_level)
+                y_coords.append(7 * j / tetra_level)
+                z_coords.append(11 * k / tetra_level)
 
     # print(x_coords)
     # print(y_coords)
