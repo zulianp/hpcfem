@@ -196,7 +196,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
 
                     int es[4] = {e0, e1, e2, e3};
 
-                    printf("First: %d %d %d %d\n", e0, e3, e2, e1);
+                    // printf("First: %d %d %d %d\n", e0, e3, e2, e1);
 
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
@@ -229,7 +229,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    printf("Second: %d %d %d %d\n", e0, e3, e2, e1);
+                    // printf("Second: %d %d %d %d\n", e0, e3, e2, e1);
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
@@ -263,7 +263,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    printf("Third: %d %d %d %d\n", e0, e3, e2, e1);
+                    // printf("Third: %d %d %d %d\n", e0, e3, e2, e1);
 
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
@@ -298,7 +298,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    printf("Fourth: %d %d %d %d\n", e0, e3, e2, e1);
+                    // printf("Fourth: %d %d %d %d\n", e0, e3, e2, e1);
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
@@ -342,7 +342,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                             assert(!isnan(vecY[es[j]]));
                         }
                     }
-                    printf("Fifth: %d %d %d %d\n", e0, e2, e1, e3);
+                    // printf("Fifth: %d %d %d %d\n", e0, e2, e1, e3);
 
                     p++;
                 }
@@ -375,7 +375,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                             assert(!isnan(vecY[es[j]]));
                         }
                     }
-                    printf("Sixth: %d %d %d %d\n", e0, e2, e1, e3);
+                    // printf("Sixth: %d %d %d %d\n", e0, e2, e1, e3);
 
                     p++;
                 }
@@ -661,7 +661,7 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
     geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX, real_t *vecY)
 {
     int level = tetra_level + 1;
-    int n_macro_elems = 1;
+    int n_macro_elems = 10000;
     int *dofs = (int *)malloc(nodes * sizeof(int));
     // int global_iter = 0;
 
