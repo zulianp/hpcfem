@@ -58,6 +58,8 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
     real_t J_inv_trans[9];
     real_t mat_J[9];
 
+    level += 1;
+
     // have to match the row/col order of compute_A
     real_t u[3] = {macro_J[0], macro_J[1], macro_J[2]};
     real_t v[3] = {macro_J[3], macro_J[4], macro_J[5]};
@@ -194,7 +196,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
 
                     int es[4] = {e0, e1, e2, e3};
 
-                    // printf("First: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("First: %d %d %d %d\n", e0, e3, e2, e1);
 
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
@@ -227,7 +229,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    // printf("Second: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("Second: %d %d %d %d\n", e0, e3, e2, e1);
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
@@ -261,7 +263,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    // printf("Third: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("Third: %d %d %d %d\n", e0, e3, e2, e1);
 
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
@@ -296,7 +298,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int es[4] = {e0, e1, e2, e3};
 
-                    // printf("Fourth: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("Fourth: %d %d %d %d\n", e0, e3, e2, e1);
                     for (int i = 0; i < 4; i++) {
                         for (int j = 0; j < 4; j++) {
                             vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
@@ -340,7 +342,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                             assert(!isnan(vecY[es[j]]));
                         }
                     }
-                    // printf("Fifth: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("Fifth: %d %d %d %d\n", e0, e2, e1, e3);
 
                     p++;
                 }
@@ -373,7 +375,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
                             assert(!isnan(vecY[es[j]]));
                         }
                     }
-                    // printf("Sixth: %d %d %d %d\n", e0, e1, e2, e3);
+                    printf("Sixth: %d %d %d %d\n", e0, e2, e1, e3);
 
                     p++;
                 }
@@ -1136,50 +1138,6 @@ void check_laplacian_matrix(real_t *L, int n)
     }
 }
 
-void compute_Lapl(real_t *J, real_t *A)
-{
-    // real_t J_inv[9];
-    // real_t J_inv_trans[9];
-
-    // matrix_inverse(J, J_inv, 3);
-
-    // // Transpose J_inv
-    // for (int i = 0; i < 3; i++) {
-    //     for (int j = 0; j < 3; j++) {
-    //         J_inv_trans[i * 3 + j] = J_inv[j * 3 + i];
-    //     }
-    // }
-
-    // real_t grad_ref_phi[4][3] = {
-    //     {-1, -1, -1},
-    //     {1, 0, 0},
-    //     {0, 1, 0},
-    //     {0, 0, 1}
-    // };
-
-    // real_t grad_phi[4][3];
-    // for (int i = 0; i < 4; i++) {
-    //     for (int j = 0; j < 3; j++) {
-    //         grad_phi[i][j] = 0;
-    //         for (int k = 0; k < 3; k++) {
-    //             grad_phi[i][j] += J_inv_trans[j * 3 + k] * grad_ref_phi[i][k];
-    //         }
-    //     }
-    // }
-
-    // for (int i = 0; i < 4; i++) {
-    //     for (int j = 0; j < 4; j++) {
-    //         real_t dot_product = 0;
-    //         for (int k = 0; k < 3; k++) {
-    //             dot_product += grad_phi[i][k] * grad_phi[j][k];
-    //         }
-    //         A[i * 4 + j] = dot_product * determinant(J, 3) / 2.0;
-    //     }
-    // }
-
-    check_laplacian_matrix(A, 4);
-}
-
 int generate_coords(int tetra_level, geom_t *x_coords, geom_t *y_coords, geom_t *z_coords)
 {
     int node_index = 0;
@@ -1333,7 +1291,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 100000;
+    int max_iters = 1;
     real_t gamma = 4*1e-1;
     // real_t gamma = 1;
 
@@ -1431,3 +1389,4 @@ int main(void)
 
     return 0;
 }
+
