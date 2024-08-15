@@ -661,7 +661,7 @@ void assemble_macro_elem(int **micro_elems, int tetra_level, int nodes, int tets
     geom_t *x_coords, geom_t *y_coords, geom_t *z_coords, real_t *vecX, real_t *vecY)
 {
     int level = tetra_level + 1;
-    int n_macro_elems = 10000;
+    int n_macro_elems = 1;
     int *dofs = (int *)malloc(nodes * sizeof(int));
     // int global_iter = 0;
 
@@ -1291,8 +1291,8 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 1;
-    real_t gamma = 4*1e-1;
+    int max_iters = 10000;
+    real_t gamma = 2*1e-1;
     // real_t gamma = 1;
 
     real_t *r = (real_t *)malloc(nodes * sizeof(real_t));
