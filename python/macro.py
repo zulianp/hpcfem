@@ -4,6 +4,7 @@ import math, os
 macro_tets = 1
 
 shown = [False for i in range(6)]
+lapl_shown = [False for i in range(6)]
 
 def tetrahedron_volume(A, B, C, D):
     # Create matrix with columns as vectors AB, AC, and AD
@@ -153,7 +154,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         
         # quadrature
         upright_A = compute_A(p0, p1, p2, p3, category=0)
-        local_M = computeFn(upright_A)
+        local_M = computeFn(upright_A, category=0)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -196,7 +197,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         
         # quadrature
         inverted_A = compute_A(p0, p1, p2, p3, category=1)
-        local_M = computeFn(inverted_A)
+        local_M = computeFn(inverted_A, category=1)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -244,7 +245,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         
         # quadrature
         third_A = compute_A(p0, p1, p2, p3, category=2)
-        local_M = computeFn(third_A)
+        local_M = computeFn(third_A, category=2)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -287,7 +288,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
 
         # quadrature
         fourth_A = compute_A(p0, p1, p2, p3, category=3)
-        local_M = computeFn(fourth_A)
+        local_M = computeFn(fourth_A, category=3)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -332,7 +333,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         assert(tetrahedron_volume(p0, p1, p2, p3) > 0)
         # quadrature
         fifth_A = compute_A(p0, p1, p2, p3, category=4)
-        local_M = computeFn(fifth_A)
+        local_M = computeFn(fifth_A, category=4)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -378,7 +379,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
         # quadrature
         sixth_A = compute_A(p0, p1, p2, p3, category=5)
         # compute_Lapl
-        local_M = computeFn(sixth_A)
+        local_M = computeFn(sixth_A, category=5)
         # scatter phase
         for i in range(0, 4) :
             for j in range(0, 4) :
@@ -433,7 +434,7 @@ def residual(in_list, tetra_level, nodes, x_coords, y_coords, z_coords, compute_
     r = rhs - Ax.flatten()
     return r
 
-def compute_Lapl(J) :
+def compute_Lapl(J, category=0) :
     A = np.zeros((4, 4))
     
     # print(J)
@@ -460,6 +461,11 @@ def compute_Lapl(J) :
         for j in range(4) :
             # print(i, j, grad_phi[i], np.dot(grad_phi[i] , grad_phi[j]) * np.linalg.det(J)/2)
             A[i, j] = np.dot(grad_phi[i] , grad_phi[j]) * det_J / 6
+
+    if not lapl_shown[category] :
+        print("Laplacian", category)
+        print(A)
+        lapl_shown[category] = True
 
     check_laplacian_matrix(A)
 

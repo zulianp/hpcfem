@@ -179,6 +179,9 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         }
     }
 
+    printf("Laplacian of Category %d\n", category);
+    print_matrix(local_M, 4, 4);
+
     if (category == 0)
     {
         int p = 0;
@@ -1291,7 +1294,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 10000;
+    int max_iters = 100000;
     real_t gamma = 2*1e-1;
     // real_t gamma = 1;
 
