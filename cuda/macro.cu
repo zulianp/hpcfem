@@ -9,8 +9,15 @@
 #include <cuda.h>
 #include <mma.h>
 #include <cuda_runtime.h>
+#include <cooperative_groups.h>
+
+// nvcc macro.cu --std=c++11 -o cargo -arch=sm_90 -g -G
+
+using namespace nvcuda;
+using namespace cooperative_groups;
 
 #define BLOCK_SIZE 256
+typedef double real_t;
 
 real_t determinant_3x3(real_t *m) {
     // computes the inverse of a matrix m
@@ -78,6 +85,7 @@ __global__ void macro_tet4_laplacian_apply_category_0(int level, real_t *local_M
     __shared__ real_t vals_gathered[1024];
     __shared__ real_t vals_to_scatter[1024];
     int vals_iter = 0;
+    real_t results[64];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -173,6 +181,7 @@ __global__ void macro_tet4_laplacian_apply_category_1(int level, real_t *local_M
     __shared__ real_t vals_gathered[1024];
     __shared__ real_t vals_to_scatter[1024];
     int vals_iter = 0;
+    real_t results[64];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -270,6 +279,7 @@ __global__ void macro_tet4_laplacian_apply_category_2(int level, real_t *local_M
     __shared__ real_t vals_gathered[1024];
     __shared__ real_t vals_to_scatter[1024];
     int vals_iter = 0;
+    real_t results[64];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -367,6 +377,7 @@ __global__ void macro_tet4_laplacian_apply_category_3(int level, real_t *local_M
     __shared__ real_t vals_gathered[1024];
     __shared__ real_t vals_to_scatter[1024];
     int vals_iter = 0;
+    real_t results[64];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -566,6 +577,7 @@ __global__ void macro_tet4_laplacian_apply_category_5(int level, real_t *local_M
     __shared__ real_t vals_gathered[1024];
     __shared__ real_t vals_to_scatter[1024];
     int vals_iter = 0;
+    real_t results[64];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -659,46 +671,25 @@ __global__ void macro_tet4_laplacian_apply_category_5(int level, real_t *local_M
     }
 }
 
-void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **dirichlet_nodes, int *num_dirichlet_nodes)
-{
-    // Set boundary conditions
-    *rhs = (real_t *)malloc(num_nodes * sizeof(real_t));
-    *x = (real_t *)malloc(num_nodes * sizeof(real_t));
-
-    *num_dirichlet_nodes = 2;
-    *dirichlet_nodes = (int *)malloc((*num_dirichlet_nodes) * sizeof(int));
-    (*dirichlet_nodes)[0] = 0;
-    (*dirichlet_nodes)[1] = num_nodes - 1;
-
-    real_t dirichlet_values[] = {1, 0};
-
-    for (int i = 0; i < *num_dirichlet_nodes; i++)
-    {
-        int idx = (*dirichlet_nodes)[i];
-        (*rhs)[idx] = dirichlet_values[i];
-        (*x)[idx] = dirichlet_values[i];
-    }
-}
-
 int compute_nodes_number(int tetra_level)
 {
-    int nodes = 0;
+    int num_nodes = 0;
     if (tetra_level % 2 == 0)
     {
         for (int i = 0; i < floor(tetra_level / 2); i++)
         {
-            nodes += (tetra_level - i + 1) * (i + 1) * 2;
+            num_nodes += (tetra_level - i + 1) * (i + 1) * 2;
         }
-        nodes += (tetra_level / 2 + 1) * (tetra_level / 2 + 1);
+        num_nodes += (tetra_level / 2 + 1) * (tetra_level / 2 + 1);
     }
     else 
     {
         for (int i = 0; i < floor(tetra_level / 2) + 1; i++)
         {
-            nodes += (tetra_level - i + 1) * (i + 1) * 2;
+            num_nodes += (tetra_level - i + 1) * (i + 1) * 2;
         }
     }
-    return nodes;
+    return num_nodes;
 }
 
 // CUDA kernel to sum six arrays
@@ -713,18 +704,21 @@ __global__ void sumUpVecY(real_t * a, real_t * b, real_t * c, real_t * d, real_t
     }
 }
 
-__host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int nodes, real_t *vecX)
+__host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int num_nodes, real_t *vecX)
 {
     cudaStream_t stream[6];
     for (int stream_idx = 0; stream_idx < 6; stream_idx += 1) {
         cudaStreamCreate(&stream[stream_idx]);
     }
 
+    // TODO: think about this
+    int level = tetra_level + 1;
+
     dim3 grid(1);
     dim3 block(32);
 
     real_t *d_vecX;
-    cudaMalloc(&d_vecX, nodes * sizeof(real_t *));
+    cudaMalloc(&d_vecX, num_nodes * sizeof(real_t *));
     cudaMemcpy(d_vecX, vecX, 1024 * sizeof(double), cudaMemcpyHostToDevice);
 
     // only the first 4x4 = 16 entries are used
@@ -735,34 +729,32 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     // real_t lapl_0[32] = {0}, lapl_1[32] = {0}, lapl_2[32] = {0};
     // real_t lapl_3[32] = {0}, lapl_4[32] = {0}, lapl_5[32] = {0};
 
-    real_t *vecY_host = (real_t *)malloc(nodes * sizeof(real_t *));
-    memset(vecY_host, 0, nodes * sizeof(real_t *));
+    // real_t *vecY_host = (real_t *)malloc(num_nodes * sizeof(real_t *));
+    // memset(vecY_host, 0, num_nodes * sizeof(real_t *));
 
     real_t *vecY_0, *vecY_1, *vecY_2, *vecY_3, *vecY_4, *vecY_5, *vecY;
-    cudaMalloc(&vecY_0, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_0, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_0, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_0, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY_1, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_1, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_1, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_1, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY_2, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_2, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_2, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_2, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY_3, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_3, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_3, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_3, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY_4, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_4, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_4, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_4, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY_5, nodes * sizeof(real_t *));
-    cudaMemset(&vecY_5, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY_5, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY_5, 0, num_nodes * sizeof(real_t *));
 
-    cudaMalloc(&vecY, nodes * sizeof(real_t *));
-    cudaMemset(&vecY, 0, nodes * sizeof(real_t *));
+    cudaMalloc(&vecY, num_nodes * sizeof(real_t *));
+    cudaMemset(&vecY, 0, num_nodes * sizeof(real_t *));
 
-    real_t *vals_gathered = (real_t *)malloc(nodes * sizeof(real_t *));
-
-    real_t micro_J[9], ;
+    real_t micro_J[9];
     // have to match the row/col order of compute_A
     real_t u[3] = {macro_J[0], macro_J[1], macro_J[2]};
     real_t v[3] = {macro_J[3], macro_J[4], macro_J[5]};
@@ -778,7 +770,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     jacobian_to_laplacian(micro_J, d_micro_L);
 
     // 2048 * 8 B / 1024 = 16 KB
-    macro_tet4_laplacian_apply_category_0<<<grid, block, 16, stream[0]>>>(tetra_level, d_micro_L, d_vecX, vecY_0);
+    macro_tet4_laplacian_apply_category_0<<<grid, block, 16, stream[0]>>>(level, d_micro_L, d_vecX, vecY_0);
 
         // [-u + w | w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -793,7 +785,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
-    macro_tet4_laplacian_apply_category_1<<<grid, block, 16, stream[1]>>>(tetra_level, d_micro_L, d_vecX, vecY_1);
+    macro_tet4_laplacian_apply_category_1<<<grid, block, 16, stream[1]>>>(level, d_micro_L, d_vecX, vecY_1);
 
         // [v | -u + v + w | w]
         for (int i = 0; i < 3; i++) {
@@ -808,7 +800,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
-    macro_tet4_laplacian_apply_category_2<<<grid, block, 16, stream[2]>>>(tetra_level, d_micro_L, d_vecX, vecY_2);
+    macro_tet4_laplacian_apply_category_2<<<grid, block, 16, stream[2]>>>(level, d_micro_L, d_vecX, vecY_2);
 
         // [-u + v | -u + w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -823,7 +815,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
-    macro_tet4_laplacian_apply_category_3<<<grid, block, 16, stream[3]>>>(tetra_level, d_micro_L, d_vecX, vecY_3);
+    macro_tet4_laplacian_apply_category_3<<<grid, block, 16, stream[3]>>>(level, d_micro_L, d_vecX, vecY_3);
 
         // [-v + w | w | -u + w]
         for (int i = 0; i < 3; i++) {
@@ -838,7 +830,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
-    macro_tet4_laplacian_apply_category_4<<<grid, block, 16, stream[4]>>>(tetra_level, d_micro_L, d_vecX, vecY_4);
+    macro_tet4_laplacian_apply_category_4<<<grid, block, 16, stream[4]>>>(level, d_micro_L, d_vecX, vecY_4);
 
         // [-u + v | -u + v + w | v]
         for (int i = 0; i < 3; i++) {
@@ -853,7 +845,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
-    macro_tet4_laplacian_apply_category_5<<<grid, block, 16, stream[5]>>>(tetra_level, d_micro_L, d_vecX, vecY_5);
+    macro_tet4_laplacian_apply_category_5<<<grid, block, 16, stream[5]>>>(level, d_micro_L, d_vecX, vecY_5);
 
     for (int stream_idx = 0; stream_idx < 6; stream_idx += 1) {
         cudaStreamSynchronize(stream[stream_idx]);
@@ -861,9 +853,9 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     // Define block size and grid size
     int blockSize = 256;
-    int gridSize = (n + blockSize - 1) / blockSize;
+    int gridSize = (num_nodes + blockSize - 1) / blockSize;
     // Launch the kernel
-    sumUpVecY<<<gridSize, blockSize, 0, stream[0]>>>(vecY_0, vecY_1, vecY_2, vecY_3, vecY_4, vecY_5, vecY, n);
+    sumUpVecY<<<gridSize, blockSize, 0, stream[0]>>>(vecY_0, vecY_1, vecY_2, vecY_3, vecY_4, vecY_5, vecY, num_nodes);
 
     cudaStreamSynchronize(stream[0]);
 
@@ -888,16 +880,16 @@ __global__ void applyDirichlet(real_t *Ax, real_t *x, int *dirichlet_nodes, int 
 }
 
 // Kernel to compute the residual r = rhs - Ax
-__global__ void computeResidual(real_t *r, real_t *rhs, real_t *Ax, int nodes) {
+__global__ void computeResidual(real_t *r, real_t *rhs, real_t *Ax, int num_nodes) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < nodes) {
+    if (idx < num_nodes) {
         r[idx] = rhs[idx] - Ax[idx];
     }
 }
 
 // Kernel to compute the norm of the residual
-__global__ void computeNorm(real_t *r, real_t *norm_r, int nodes) {
+__global__ void computeNorm(real_t *r, real_t *norm_r, int num_nodes) {
     __shared__ real_t shared_norm[BLOCK_SIZE];
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -907,7 +899,7 @@ __global__ void computeNorm(real_t *r, real_t *norm_r, int nodes) {
     shared_norm[tid] = 0.0f;
 
     // Compute partial sums of squares in parallel
-    if (idx < nodes) {
+    if (idx < num_nodes) {
         shared_norm[tid] = r[idx] * r[idx];
     }
     __syncthreads();
@@ -925,63 +917,6 @@ __global__ void computeNorm(real_t *r, real_t *norm_r, int nodes) {
         atomicAdd(norm_r, shared_norm[0]);
     }
 }
-
-// double cuda_residual(real_t *macro_J, int tetra_level, int nodes, int *dirichlet_nodes, int num_dirichlet_nodes, real_t *rhs, real_t *x, real_t *r) {
-//     // GPU memory pointers
-//     real_t *d_Ax, *d_rhs, *d_x, *d_r, *d_norm_r;
-//     int *d_dirichlet_nodes;
-
-//     // Allocate memory on the GPU
-//     cudaMalloc(&d_Ax, nodes * sizeof(real_t));
-//     cudaMalloc(&d_rhs, nodes * sizeof(real_t));
-//     cudaMalloc(&d_x, nodes * sizeof(real_t));
-//     cudaMalloc(&d_r, nodes * sizeof(real_t));
-//     cudaMalloc(&d_norm_r, sizeof(real_t));
-//     cudaMalloc(&d_dirichlet_nodes, num_dirichlet_nodes * sizeof(int));
-
-//     // Copy data from host to device
-//     d_Ax = apply_cuda_macro_kernel(macro_J, tetra_level, nodes, vecX);
-//     // cudaMemcpy(d_Ax, Ax, nodes * sizeof(real_t), cudaMemcpyHostToDevice);
-//     cudaMemcpy(d_rhs, rhs, nodes * sizeof(real_t), cudaMemcpyHostToDevice);
-//     cudaMemcpy(d_x, x, nodes * sizeof(real_t), cudaMemcpyHostToDevice);
-//     cudaMemcpy(d_dirichlet_nodes, dirichlet_nodes, num_dirichlet_nodes * sizeof(int), cudaMemcpyHostToDevice);
-
-//     // Set initial value of norm_r to zero
-//     cudaMemset(d_norm_r, 0, sizeof(real_t));
-
-//     // Define grid and block sizes
-//     int blockSize = BLOCK_SIZE;
-//     int gridSizeDirichlet = (num_dirichlet_nodes + blockSize - 1) / blockSize;
-//     int gridSizeNodes = (nodes + blockSize - 1) / blockSize;
-
-//     // Launch the kernels
-//     applyDirichlet<<<gridSizeDirichlet, blockSize>>>(d_Ax, d_x, d_dirichlet_nodes, num_dirichlet_nodes);
-//     computeResidual<<<gridSizeNodes, blockSize>>>(d_r, d_rhs, d_Ax, nodes);
-//     computeNorm<<<gridSizeNodes, blockSize>>>(d_r, d_norm_r, nodes);
-
-//     // Copy the result back to host
-//     real_t h_norm_r;
-//     cudaMemcpy(&h_norm_r, d_norm_r, sizeof(real_t), cudaMemcpyDeviceToHost);
-
-//     // Take the square root of the norm to finalize
-//     h_norm_r = sqrt(h_norm_r);
-
-//     // Print norm for verification
-//     std::cout << "Norm of residual: " << h_norm_r << std::endl;
-
-//     // Free GPU memory
-//     cudaFree(d_Ax);
-//     cudaFree(d_rhs);
-//     cudaFree(d_x);
-//     cudaFree(d_r);
-//     cudaFree(d_norm_r);
-//     cudaFree(d_dirichlet_nodes);
-
-//     // Free host memory for Ax
-//     free(Ax);
-
-//     return h_norm_r;
-// }
 
 // Kernel for vector dot product: result = sum(a[i] * b[i])
 __global__ void dotProduct(const real_t* a, const real_t* b, real_t* result, int N) {
@@ -1043,17 +978,19 @@ void set_boundary_conditions_cuda(int num_nodes, real_t *rhs, real_t *x, int **d
     // Launch the kernel to set the Dirichlet boundary conditions
     int blockSize = 256;
     int gridSize = (*num_dirichlet_nodes + blockSize - 1) / blockSize;
-    setDirichletBoundaryConditions<<<gridSize, blockSize>>>(*dirichlet_nodes, *rhs, *x, d_dirichlet_values, *num_dirichlet_nodes);
+    setDirichletBoundaryConditions<<<gridSize, blockSize>>>(*dirichlet_nodes, rhs, x, d_dirichlet_values, *num_dirichlet_nodes);
 
     // Free the temporary device memory for Dirichlet values
     cudaFree(d_dirichlet_values);
 }
 
-__host__ int solve_using_conjugate_gradient(int tetra_level, int num_nodes, int num_tets, real_t *macro_J)
+__host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, int num_tets, real_t *macro_J)
 {
     // Allocate variables for boundary conditions
     int max_iter = 10000;
     double tol = 1e-7;
+    real_t *h_x;
+    cudaMallocHost(&h_x, sizeof(real_t) * num_nodes);
 
     #define N 1024
 
@@ -1071,11 +1008,11 @@ __host__ int solve_using_conjugate_gradient(int tetra_level, int num_nodes, int 
 
     real_t *d_norm_r;
     cudaMalloc(&d_norm_r, sizeof(real_t));
-    int *dirichlet_nodes;
+    int *d_dirichlet_nodes;
     int num_dirichlet_nodes;
 
     // Set boundary conditions
-    set_boundary_conditions_cuda(num_nodes, d_b, d_x, &dirichlet_nodes, &num_dirichlet_nodes);
+    set_boundary_conditions_cuda(num_nodes, d_b, d_x, &d_dirichlet_nodes, &num_dirichlet_nodes);
 
     // Define grid and block sizes
     int blockSize = BLOCK_SIZE;
@@ -1125,10 +1062,11 @@ __host__ int solve_using_conjugate_gradient(int tetra_level, int num_nodes, int 
 
         // Check for convergence
         if (sqrt(h_dot_r1) < tol) {
+            cudaMemcpy(&h_x, d_x, sizeof(real_t) * num_nodes, cudaMemcpyDeviceToHost);
             printf("Converged after %d iterations\nSolution: [", iter + 1);
             for (int k = 0; k < num_nodes; k++)
             {
-                printf("%lf ", x[k]);
+                printf("%lf ", h_x[k]);
             }
             printf("]\n");
             break;
@@ -1146,9 +1084,6 @@ __host__ int solve_using_conjugate_gradient(int tetra_level, int num_nodes, int 
         iter++;
     }
 
-    // Copy the final result back to host
-    cudaMemcpy(x, d_x, N * sizeof(real_t), cudaMemcpyDeviceToHost);
-
     // Free GPU memory
     cudaFree(d_b);
     cudaFree(d_x);
@@ -1162,107 +1097,107 @@ __host__ int solve_using_conjugate_gradient(int tetra_level, int num_nodes, int 
     cudaFree(d_Ax);
 
     // Free allocated memory
-    free(dirichlet_nodes);
+    cudaFree(d_dirichlet_nodes);
 
-    return 0;
+    return h_x;
 }
 
-int solve_using_gradient_descent(int tetra_level, int nodes, int tets, real_t *macro_J)
-{
-    // Allocate variables for boundary conditions
-    real_t *rhs;          // = (real_t *)malloc(nodes * sizeof(real_t));
-    real_t *x;            // = (real_t *)malloc(nodes * sizeof(real_t));
-    int *dirichlet_nodes; // = (int *)malloc(nodes * sizeof(int));
-    int num_dirichlet_nodes;
+// int solve_using_gradient_descent(int tetra_level, int nodes, int tets, real_t *macro_J)
+// {
+//     // Allocate variables for boundary conditions
+//     real_t *rhs;          // = (real_t *)malloc(nodes * sizeof(real_t));
+//     real_t *x;            // = (real_t *)malloc(nodes * sizeof(real_t));
+//     int *dirichlet_nodes; // = (int *)malloc(nodes * sizeof(int));
+//     int num_dirichlet_nodes;
 
-    // Set boundary conditions
-    set_boundary_conditions(nodes, &rhs, &x, &dirichlet_nodes, &num_dirichlet_nodes);
+//     // Set boundary conditions
+//     set_boundary_conditions(nodes, &rhs, &x, &dirichlet_nodes, &num_dirichlet_nodes);
 
-    printf("Number of coordinate triplets: %d, Number of nodes: %d\n", num_coords, nodes);
+//     printf("Number of coordinate triplets: %d, Number of nodes: %d\n", num_coords, nodes);
 
-    // Maximum number of iterations
-    int max_iters = 100000;
-    real_t gamma = 2*1e-1;
+//     // Maximum number of iterations
+//     int max_iters = 100000;
+//     real_t gamma = 2*1e-1;
 
-    real_t *r;
-    cudaMalloc(&r, nodes * sizeof(real_t));
+//     real_t *r;
+//     cudaMalloc(&r, nodes * sizeof(real_t));
 
-    for (int i = 0; i < max_iters; i++)
-    {
-        // Compute residual
-        norm_r = cuda_residual(macro_J, tetra_level, nodes, dirichlet_nodes, num_dirichlet_nodes, rhs, x, r);
+//     for (int i = 0; i < max_iters; i++)
+//     {
+//         // Compute residual
+//         norm_r = cuda_residual(macro_J, tetra_level, nodes, dirichlet_nodes, num_dirichlet_nodes, rhs, x, r);
 
-        // Print the norm of r
-        printf("Iteration %d, Residual norm: %lf\n", i, norm_r);
+//         // Print the norm of r
+//         printf("Iteration %d, Residual norm: %lf\n", i, norm_r);
 
-        // Update x
-        for (int j = 0; j < nodes; j++)
-        {
-            x[j] += gamma * r[j];
-        }
+//         // Update x
+//         for (int j = 0; j < nodes; j++)
+//         {
+//             x[j] += gamma * r[j];
+//         }
 
-        // printf("nodes: %d coords: %d\n", nodes, num_coords);
+//         // printf("nodes: %d coords: %d\n", nodes, num_coords);
 
-#ifdef GENERATE_VTK
-        // Write the result to construct the VTK file
-        FILE *f = fopen("solution.raw", "wb");
-        fwrite(x, sizeof(real_t), nodes, f);
-        fclose(f);
+// #ifdef GENERATE_VTK
+//         // Write the result to construct the VTK file
+//         FILE *f = fopen("solution.raw", "wb");
+//         fwrite(x, sizeof(real_t), nodes, f);
+//         fclose(f);
 
-        // Change directory
-        chdir("/Users/bolema/Documents/sfem/");
-        const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
-        "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
-        "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
-        "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+//         // Change directory
+//         chdir("/Users/bolema/Documents/sfem/");
+//         const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
+//         "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
+//         "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+//         "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
 
-        // Execute the command
-        int ret = system(command);
-        if (ret == -1) {
-            perror("system() call failed");
-        }
-#endif
+//         // Execute the command
+//         int ret = system(command);
+//         if (ret == -1) {
+//             perror("system() call failed");
+//         }
+// #endif
 
-        // Check for convergence
-        if (norm_r < 1e-8)
-        {
-            printf("Converged after %d iterations\nSolution:", i + 1);
-            for (int k = 0; k < nodes; k++)
-            {
-                printf("%lf \n", x[k]);
-            }
-            printf("\n");
+//         // Check for convergence
+//         if (norm_r < 1e-8)
+//         {
+//             printf("Converged after %d iterations\nSolution:", i + 1);
+//             for (int k = 0; k < nodes; k++)
+//             {
+//                 printf("%lf \n", x[k]);
+//             }
+//             printf("\n");
 
-            // // Write the result to construct the VTK file
-            // FILE *f = fopen("solution.raw", "wb");
-            // fwrite(x, sizeof(real_t), nodes, f);
-            // fclose(f);
+//             // // Write the result to construct the VTK file
+//             // FILE *f = fopen("solution.raw", "wb");
+//             // fwrite(x, sizeof(real_t), nodes, f);
+//             // fclose(f);
 
-            // // Change directory
-            // chdir("/Users/bolema/Documents/sfem/");
-            // const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
-            // "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
-            // "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
-            // "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
+//             // // Change directory
+//             // chdir("/Users/bolema/Documents/sfem/");
+//             // const char *command = "source venv/bin/activate && cd python/sfem/mesh/ && "
+//             // "python3 raw_to_db.py /Users/bolema/Documents/hpcfem/a64fx /Users/bolema/Documents/hpcfem/a64fx/test.vtk " 
+//             // "-c /Users/bolema/Documents/hpcfem/a64fx/category.raw "
+//             // "-p /Users/bolema/Documents/hpcfem/a64fx/solution.raw";
 
-            // // Execute the command
-            // int ret = system(command);
-            // if (ret == -1) {
-            //     perror("system() call failed");
-            // }
+//             // // Execute the command
+//             // int ret = system(command);
+//             // if (ret == -1) {
+//             //     perror("system() call failed");
+//             // }
 
-            free(r);
-            break;
-        }
-    }
+//             free(r);
+//             break;
+//         }
+//     }
 
-    // Free allocated memory
-    free(rhs);
-    free(x);
-    free(dirichlet_nodes);
+//     // Free allocated memory
+//     free(rhs);
+//     free(x);
+//     free(dirichlet_nodes);
 
-    return 0;
-}
+//     return 0;
+// }
 
 void compute_A(real_t *p0, real_t *p1, real_t *p2, real_t *p3, real_t *A)
 {
@@ -1289,7 +1224,8 @@ int main(void) {
     real_t p3[3] = {0, 0, 1};
     compute_A(p0, p1, p2, p3, macro_J);
 
-    solve_using_conjugate_gradient(tetra_level, num_nodes, num_tets, macro_J);
+    real_t *h_x = solve_using_conjugate_gradient(tetra_level, num_nodes, num_tets, macro_J);
+    cudaFreeHost(h_x);
     // solve_using_gradient_descent(tetra_level, num_nodes, num_tets, macro_J);
 
     return 0;
