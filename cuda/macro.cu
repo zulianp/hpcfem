@@ -898,11 +898,11 @@ int compute_tets_number(int tetra_level)
 }
 
 // Kernel to apply Dirichlet boundary conditions
-__global__ void applyDirichlet(real_t *Ax, real_t *x, int *dirichlet_nodes, int num_dirichlet_nodes) {
+__global__ void applyDirichlet(real_t *Ax, real_t *x, size_t *dirichlet_nodes, size_t num_dirichlet_nodes) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < num_dirichlet_nodes) {
-        int dirichlet_node = dirichlet_nodes[idx];
+        size_t dirichlet_node = dirichlet_nodes[idx];
         Ax[dirichlet_node] = x[dirichlet_node];
     }
 }
@@ -987,7 +987,7 @@ __global__ void setDirichletBoundaryConditions(size_t *dirichlet_nodes, real_t *
     }
 }
 
-void set_boundary_conditions_cuda(int num_nodes, real_t *rhs, real_t *x, size_t **dirichlet_nodes, size_t *num_dirichlet_nodes)
+void set_boundary_conditions_cuda(size_t num_nodes, real_t *rhs, real_t *x, size_t **dirichlet_nodes, size_t *num_dirichlet_nodes)
 {
     *num_dirichlet_nodes = 2;
     checkCudaError(cudaMalloc(dirichlet_nodes, (*num_dirichlet_nodes) * sizeof(size_t)));
