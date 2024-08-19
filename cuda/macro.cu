@@ -718,8 +718,8 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     dim3 block(32);
 
     real_t *d_vecX;
-    cudaMalloc(&d_vecX, num_nodes * sizeof(real_t *));
-    cudaMemcpy(d_vecX, vecX, 1024 * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMalloc(&d_vecX, num_nodes * sizeof(real_t));
+    cudaMemcpy(d_vecX, vecX, num_nodes * sizeof(real_t), cudaMemcpyHostToDevice);
 
     // only the first 4x4 = 16 entries are used
     // the rest serves as padding to fit in a 8x4 matrix
@@ -734,25 +734,25 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     real_t *vecY_0, *vecY_1, *vecY_2, *vecY_3, *vecY_4, *vecY_5, *vecY;
     cudaMalloc(&vecY_0, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_0, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_0, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY_1, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_1, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_1, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY_2, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_2, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_2, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY_3, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_3, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_3, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY_4, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_4, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_4, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY_5, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY_5, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY_5, 0, num_nodes * sizeof(real_t *));
 
     cudaMalloc(&vecY, num_nodes * sizeof(real_t *));
-    cudaMemset(&vecY, 0, num_nodes * sizeof(real_t *));
+    cudaMemset(vecY, 0, num_nodes * sizeof(real_t *));
 
     real_t micro_J[9];
     // have to match the row/col order of compute_A
