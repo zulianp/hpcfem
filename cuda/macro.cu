@@ -754,8 +754,8 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     // memset(vecY_host, 0, num_nodes * sizeof(real_t *));
 
     real_t *vecY_0, *vecY_1, *vecY_2, *vecY_3, *vecY_4, *vecY_5, *vecY;
-    checkCudaError(cudaMalloc(&vecY_0, num_nodes * sizeof(real_t))));
-    checkCudaError(cudaMemset(vecY_0, 0, num_nodes * sizeof(real_t))));
+    checkCudaError(cudaMalloc(&vecY_0, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_0, 0, num_nodes * sizeof(real_t)));
 
     checkCudaError(cudaMalloc(&vecY_1, num_nodes * sizeof(real_t)));
     checkCudaError(cudaMemset(vecY_1, 0, num_nodes * sizeof(real_t)));
@@ -978,10 +978,10 @@ __global__ void vectorAdd(real_t* x, const real_t* p, real_t alpha, int N) {
 }
 
 // CUDA Kernel to set the Dirichlet boundary conditions
-__global__ void setDirichletBoundaryConditions(int *dirichlet_nodes, real_t *rhs, real_t *x, real_t *dirichlet_values, int num_dirichlet_nodes) {
+__global__ void setDirichletBoundaryConditions(size_t *dirichlet_nodes, real_t *rhs, real_t *x, real_t *dirichlet_values, size_t num_dirichlet_nodes) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < num_dirichlet_nodes) {
-        int idx = dirichlet_nodes[i];
+        size_t idx = dirichlet_nodes[i];
         rhs[idx] = dirichlet_values[i];
         x[idx] = dirichlet_values[i];
     }
@@ -1037,8 +1037,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
 
     real_t *d_norm_r;
     checkCudaError(cudaMalloc(&d_norm_r, sizeof(real_t)));
-    int *d_dirichlet_nodes;
-    int num_dirichlet_nodes;
+    size_t *d_dirichlet_nodes;
+    size_t num_dirichlet_nodes;
 
     // Set boundary conditions
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, &d_dirichlet_nodes, &num_dirichlet_nodes);
