@@ -11,13 +11,35 @@
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 
-// nvcc macro.cu --std=c++11 -o cargo -arch=sm_90 -g -G
+// nvcc macro.cu --std=c++11 -o cargo -arch=sm_80 -g -lineinfo
 
 using namespace nvcuda;
 using namespace cooperative_groups;
 
 #define BLOCK_SIZE 256
 typedef double real_t;
+
+#define checkCudaError(call)                                                \
+{                                                                           \
+    cudaError_t err = call;                                                 \
+    if (err != cudaSuccess)                                                 \
+    {                                                                       \
+        fprintf(stderr, "CUDA Error: %s (code: %d), at %s:%d\n",            \
+                cudaGetErrorString(err), err, __FILE__, __LINE__);          \
+        exit(EXIT_FAILURE);                                                 \
+    }                                                                       \
+}
+
+#define ifLastErrorExists(msg)                                         \
+{                                                                      \
+    cudaError_t err = cudaGetLastError();                              \
+    if (err != cudaSuccess)                                            \
+    {                                                                  \
+        fprintf(stderr, "CUDA Error: %s, at %s:%d - %s\n",             \
+                msg, __FILE__, __LINE__, cudaGetErrorString(err));     \
+        exit(EXIT_FAILURE);                                            \
+    }                                                                  \
+}
 
 real_t determinant_3x3(real_t *m) {
     // computes the inverse of a matrix m
@@ -77,7 +99,7 @@ void jacobian_to_laplacian(real_t *micro_J, real_t *d_micro_L) {
         }
     }
 
-    cudaMemcpy(d_micro_L, local_M, 32 * sizeof(real_t), cudaMemcpyHostToDevice);
+    checkCudaError(cudaMemcpy(d_micro_L, local_M, 32 * sizeof(real_t), cudaMemcpyHostToDevice));
 
 }
 
@@ -524,7 +546,6 @@ __global__ void macro_tet4_laplacian_apply_category_4(int level, real_t *local_M
     }
     g.sync();
 
-    // TODO: check if there's a transpose missing; can change row order
     // TODO: think about the case where we don't have enough sub tetrahedrons (not divisible by 32)
     for (int i = 0; i < vals_iter; i += 32) {
         // Load the inputs
@@ -704,7 +725,7 @@ __global__ void sumUpVecY(real_t * a, real_t * b, real_t * c, real_t * d, real_t
     }
 }
 
-__host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int num_nodes, real_t *vecX)
+__host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int num_nodes, real_t *d_vecX)
 {
     cudaStream_t stream[6];
     for (int stream_idx = 0; stream_idx < 6; stream_idx += 1) {
@@ -717,14 +738,14 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     dim3 grid(1);
     dim3 block(32);
 
-    real_t *d_vecX;
-    cudaMalloc(&d_vecX, num_nodes * sizeof(real_t));
-    cudaMemcpy(d_vecX, vecX, num_nodes * sizeof(real_t), cudaMemcpyHostToDevice);
+    // real_t *d_vecX;
+    // cudaMalloc(&d_vecX, num_nodes * sizeof(real_t));
+    // cudaMemcpy(d_vecX, vecX, num_nodes * sizeof(real_t), cudaMemcpyHostToDevice);
 
     // only the first 4x4 = 16 entries are used
     // the rest serves as padding to fit in a 8x4 matrix
     real_t *d_micro_L;
-    cudaMalloc(&d_micro_L, 32 * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&d_micro_L, 32 * sizeof(real_t)));
 
     // real_t lapl_0[32] = {0}, lapl_1[32] = {0}, lapl_2[32] = {0};
     // real_t lapl_3[32] = {0}, lapl_4[32] = {0}, lapl_5[32] = {0};
@@ -733,26 +754,26 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     // memset(vecY_host, 0, num_nodes * sizeof(real_t *));
 
     real_t *vecY_0, *vecY_1, *vecY_2, *vecY_3, *vecY_4, *vecY_5, *vecY;
-    cudaMalloc(&vecY_0, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_0, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_0, num_nodes * sizeof(real_t))));
+    checkCudaError(cudaMemset(vecY_0, 0, num_nodes * sizeof(real_t))));
 
-    cudaMalloc(&vecY_1, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_1, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_1, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_1, 0, num_nodes * sizeof(real_t)));
 
-    cudaMalloc(&vecY_2, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_2, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_2, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_2, 0, num_nodes * sizeof(real_t)));
 
-    cudaMalloc(&vecY_3, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_3, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_3, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_3, 0, num_nodes * sizeof(real_t)));
 
-    cudaMalloc(&vecY_4, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_4, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_4, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_4, 0, num_nodes * sizeof(real_t)));
 
-    cudaMalloc(&vecY_5, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY_5, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY_5, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY_5, 0, num_nodes * sizeof(real_t)));
 
-    cudaMalloc(&vecY, num_nodes * sizeof(real_t *));
-    cudaMemset(vecY, 0, num_nodes * sizeof(real_t *));
+    checkCudaError(cudaMalloc(&vecY, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMemset(vecY, 0, num_nodes * sizeof(real_t)));
 
     real_t micro_J[9];
     // have to match the row/col order of compute_A
@@ -771,6 +792,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
 
     // 2048 * 8 B / 1024 = 16 KB
     macro_tet4_laplacian_apply_category_0<<<grid, block, 16, stream[0]>>>(level, d_micro_L, d_vecX, vecY_0);
+    ifLastErrorExists("Kernel launch failed");
 
         // [-u + w | w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -786,6 +808,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
     macro_tet4_laplacian_apply_category_1<<<grid, block, 16, stream[1]>>>(level, d_micro_L, d_vecX, vecY_1);
+    ifLastErrorExists("Kernel launch failed");
 
         // [v | -u + v + w | w]
         for (int i = 0; i < 3; i++) {
@@ -801,6 +824,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
     macro_tet4_laplacian_apply_category_2<<<grid, block, 16, stream[2]>>>(level, d_micro_L, d_vecX, vecY_2);
+    ifLastErrorExists("Kernel launch failed");
 
         // [-u + v | -u + w | -u + v + w]
         for (int i = 0; i < 3; i++) {
@@ -816,6 +840,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
     macro_tet4_laplacian_apply_category_3<<<grid, block, 16, stream[3]>>>(level, d_micro_L, d_vecX, vecY_3);
+    ifLastErrorExists("Kernel launch failed");
 
         // [-v + w | w | -u + w]
         for (int i = 0; i < 3; i++) {
@@ -831,6 +856,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
     macro_tet4_laplacian_apply_category_4<<<grid, block, 16, stream[4]>>>(level, d_micro_L, d_vecX, vecY_4);
+    ifLastErrorExists("Kernel launch failed");
 
         // [-u + v | -u + v + w | v]
         for (int i = 0; i < 3; i++) {
@@ -846,6 +872,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     assert(determinant_3x3(micro_J) > 0);
     jacobian_to_laplacian(micro_J, d_micro_L);
     macro_tet4_laplacian_apply_category_5<<<grid, block, 16, stream[5]>>>(level, d_micro_L, d_vecX, vecY_5);
+    ifLastErrorExists("Kernel launch failed");
 
     for (int stream_idx = 0; stream_idx < 6; stream_idx += 1) {
         cudaStreamSynchronize(stream[stream_idx]);
@@ -856,6 +883,7 @@ __host__ real_t *apply_cuda_macro_kernel(real_t *macro_J, int tetra_level, int n
     int gridSize = (num_nodes + blockSize - 1) / blockSize;
     // Launch the kernel
     sumUpVecY<<<gridSize, blockSize, 0, stream[0]>>>(vecY_0, vecY_1, vecY_2, vecY_3, vecY_4, vecY_5, vecY, num_nodes);
+    ifLastErrorExists("Kernel launch failed");
 
     cudaStreamSynchronize(stream[0]);
 
@@ -959,29 +987,30 @@ __global__ void setDirichletBoundaryConditions(int *dirichlet_nodes, real_t *rhs
     }
 }
 
-void set_boundary_conditions_cuda(int num_nodes, real_t *rhs, real_t *x, int **dirichlet_nodes, int *num_dirichlet_nodes)
+void set_boundary_conditions_cuda(int num_nodes, real_t *rhs, real_t *x, size_t **dirichlet_nodes, size_t *num_dirichlet_nodes)
 {
     *num_dirichlet_nodes = 2;
-    cudaMalloc(dirichlet_nodes, (*num_dirichlet_nodes) * sizeof(int));
+    checkCudaError(cudaMalloc(dirichlet_nodes, (*num_dirichlet_nodes) * sizeof(size_t)));
 
     // Set the Dirichlet nodes (e.g., first and last nodes)
-    int h_dirichlet_nodes[] = {0, num_nodes - 1};
-    cudaMemcpy(*dirichlet_nodes, h_dirichlet_nodes, (*num_dirichlet_nodes) * sizeof(int), cudaMemcpyHostToDevice);
+    size_t h_dirichlet_nodes[] = {0, num_nodes - 1};
+    checkCudaError(cudaMemcpy(*dirichlet_nodes, h_dirichlet_nodes, (*num_dirichlet_nodes) * sizeof(size_t), cudaMemcpyHostToDevice));
 
     // Set the Dirichlet values corresponding to the Dirichlet nodes
     real_t h_dirichlet_values[] = {1.0, 0.0};
 
     real_t *d_dirichlet_values;
-    cudaMalloc(&d_dirichlet_values, (*num_dirichlet_nodes) * sizeof(real_t));
-    cudaMemcpy(d_dirichlet_values, h_dirichlet_values, (*num_dirichlet_nodes) * sizeof(real_t), cudaMemcpyHostToDevice);
+    checkCudaError(cudaMalloc(&d_dirichlet_values, (*num_dirichlet_nodes) * sizeof(real_t)));
+    checkCudaError(cudaMemcpy(d_dirichlet_values, h_dirichlet_values, (*num_dirichlet_nodes) * sizeof(real_t), cudaMemcpyHostToDevice));
 
     // Launch the kernel to set the Dirichlet boundary conditions
     int blockSize = 256;
     int gridSize = (*num_dirichlet_nodes + blockSize - 1) / blockSize;
     setDirichletBoundaryConditions<<<gridSize, blockSize>>>(*dirichlet_nodes, rhs, x, d_dirichlet_values, *num_dirichlet_nodes);
+    ifLastErrorExists("Kernel launch failed");
 
     // Free the temporary device memory for Dirichlet values
-    cudaFree(d_dirichlet_values);
+    checkCudaError(cudaFree(d_dirichlet_values));
 }
 
 __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, int num_tets, real_t *macro_J)
@@ -990,24 +1019,24 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
     int max_iter = 10000;
     double tol = 1e-7;
     real_t *h_x;
-    cudaMallocHost(&h_x, sizeof(real_t) * num_nodes);
+    checkCudaError(cudaMallocHost(&h_x, sizeof(real_t) * num_nodes));
 
     #define N 1024
 
     // Allocate GPU memory
     real_t *d_b, *d_x, *d_r, *d_p, *d_Ap;
     real_t *d_dot_r0, *d_dot_r1, *d_dot_pAp;
-    cudaMalloc(&d_b, N * sizeof(real_t));
-    cudaMalloc(&d_x, N * sizeof(real_t));
-    cudaMalloc(&d_r, N * sizeof(real_t));
-    cudaMalloc(&d_p, N * sizeof(real_t));
-    cudaMalloc(&d_Ap, N * sizeof(real_t));
-    cudaMalloc(&d_dot_r0, sizeof(real_t));
-    cudaMalloc(&d_dot_r1, sizeof(real_t));
-    cudaMalloc(&d_dot_pAp, sizeof(real_t));
+    checkCudaError(cudaMalloc(&d_b, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_x, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_r, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_p, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_Ap, num_nodes * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_dot_r0, sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_dot_r1, sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_dot_pAp, sizeof(real_t)));
 
     real_t *d_norm_r;
-    cudaMalloc(&d_norm_r, sizeof(real_t));
+    checkCudaError(cudaMalloc(&d_norm_r, sizeof(real_t)));
     int *d_dirichlet_nodes;
     int num_dirichlet_nodes;
 
@@ -1022,15 +1051,19 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
     // Initialize r = b - A * x and p = r
     real_t *d_Ax = apply_cuda_macro_kernel(macro_J, tetra_level, num_nodes, d_x);
     applyDirichlet<<<gridSizeDirichlet, blockSize>>>(d_Ax, d_x, d_dirichlet_nodes, num_dirichlet_nodes);
+    ifLastErrorExists("Kernel launch failed");
 
     computeResidual<<<gridSizeNodes, blockSize>>>(d_r, d_b, d_Ax, num_nodes);
+    ifLastErrorExists("Kernel launch failed");
 
     // Calculate the initial dot product r0 = r^T * r
-    cudaMemset(d_dot_r0, 0, sizeof(real_t));
+    checkCudaError(cudaMemset(d_dot_r0, 0, sizeof(real_t)));
+
     dotProduct<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_r, d_r, d_dot_r0, N);
-    
+    ifLastErrorExists("Kernel launch failed");
+
     real_t h_dot_r0, h_dot_r1, h_dot_pAp;
-    cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost);
+    checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
 
     // Start Conjugate Gradient iterations
     int iter = 0;
@@ -1038,31 +1071,38 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
         // Ap = A * p
         d_Ap = apply_cuda_macro_kernel(macro_J, tetra_level, num_nodes, d_p);
         applyDirichlet<<<gridSizeDirichlet, blockSize>>>(d_Ap, d_p, d_dirichlet_nodes, num_dirichlet_nodes);
+        ifLastErrorExists("Kernel launch failed");
 
         // Calculate p^T * Ap
-        cudaMemset(d_dot_pAp, 0, sizeof(real_t));
-        dotProduct<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_p, d_Ap, d_dot_pAp, N);
-        cudaMemcpy(&h_dot_pAp, d_dot_pAp, sizeof(real_t), cudaMemcpyDeviceToHost);
+        checkCudaError(cudaMemset(d_dot_pAp, 0, sizeof(real_t)));
+        dotProduct<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_p, d_Ap, d_dot_pAp, num_nodes);
+        ifLastErrorExists("Kernel launch failed");
+
+        checkCudaError(cudaMemcpy(&h_dot_pAp, d_dot_pAp, sizeof(real_t), cudaMemcpyDeviceToHost));
 
         // alpha = r^T * r / p^T * Ap
         real_t alpha = h_dot_r0 / h_dot_pAp;
 
         // Update x = x + alpha * p
-        vectorAdd<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_x, d_p, alpha, N);
+        vectorAdd<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_x, d_p, alpha, num_nodes);
+        ifLastErrorExists("Kernel launch failed");
 
         // Update r = r - alpha * Ap
-        vectorAdd<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_r, d_Ap, -alpha, N);
+        vectorAdd<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_r, d_Ap, -alpha, num_nodes);
+        ifLastErrorExists("Kernel launch failed");
 
         // Calculate new r^T * r
-        cudaMemset(d_dot_r1, 0, sizeof(real_t));
-        dotProduct<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_r, d_r, d_dot_r1, N);
-        cudaMemcpy(&h_dot_r1, d_dot_r1, sizeof(real_t), cudaMemcpyDeviceToHost);
+        checkCudaError(cudaMemset(d_dot_r1, 0, sizeof(real_t)));
+        dotProduct<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_r, d_r, d_dot_r1, num_nodes);
+        ifLastErrorExists("Kernel launch failed");
+
+        checkCudaError(cudaMemcpy(&h_dot_r1, d_dot_r1, sizeof(real_t), cudaMemcpyDeviceToHost));
 
         printf("Iteration %d, Residual norm: %lf\n", iter, h_dot_r1);
 
         // Check for convergence
         if (sqrt(h_dot_r1) < tol) {
-            cudaMemcpy(&h_x, d_x, sizeof(real_t) * num_nodes, cudaMemcpyDeviceToHost);
+            checkCudaError(cudaMemcpy(&h_x, d_x, sizeof(real_t) * num_nodes, cudaMemcpyDeviceToHost));
             printf("Converged after %d iterations\nSolution: [", iter + 1);
             for (int k = 0; k < num_nodes; k++)
             {
@@ -1077,6 +1117,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
 
         // Update p = r + beta * p
         vectorAdd<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_p, d_r, beta, N);
+        ifLastErrorExists("Kernel launch failed");
 
         // Update r0 = r1
         h_dot_r0 = h_dot_r1;
@@ -1085,19 +1126,19 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_nodes, 
     }
 
     // Free GPU memory
-    cudaFree(d_b);
-    cudaFree(d_x);
-    cudaFree(d_r);
-    cudaFree(d_p);
-    cudaFree(d_Ap);
-    cudaFree(d_dot_r0);
-    cudaFree(d_dot_r1);
-    cudaFree(d_dot_pAp);
+    checkCudaError(cudaFree(d_b));
+    checkCudaError(cudaFree(d_x));
+    checkCudaError(cudaFree(d_r));
+    checkCudaError(cudaFree(d_p));
+    checkCudaError(cudaFree(d_Ap));
+    checkCudaError(cudaFree(d_dot_r0));
+    checkCudaError(cudaFree(d_dot_r1));
+    checkCudaError(cudaFree(d_dot_pAp));
 
-    cudaFree(d_Ax);
+    checkCudaError(cudaFree(d_Ax));
 
     // Free allocated memory
-    cudaFree(d_dirichlet_nodes);
+    checkCudaError(cudaFree(d_dirichlet_nodes));
 
     return h_x;
 }
@@ -1225,7 +1266,7 @@ int main(void) {
     compute_A(p0, p1, p2, p3, macro_J);
 
     real_t *h_x = solve_using_conjugate_gradient(tetra_level, num_nodes, num_tets, macro_J);
-    cudaFreeHost(h_x);
+    checkCudaError(cudaFreeHost(h_x));
     // solve_using_gradient_descent(tetra_level, num_nodes, num_tets, macro_J);
 
     return 0;
