@@ -7,7 +7,7 @@
 // Struct to store node information
 typedef struct {
     int id;
-    double x, y, z;
+    double p[3];
 } Node;
 
 // Struct to store element information
@@ -61,9 +61,9 @@ int main(void) {
                     double x, y, z;
                     fgets(line, MAX_LINE_LENGTH, file);
                     sscanf(line, "%lf %lf %lf", &x, &y, &z);
-                    nodes[nodes_base_ptr+i].x = x;
-                    nodes[nodes_base_ptr+i].y = y;
-                    nodes[nodes_base_ptr+i].z = z;
+                    nodes[nodes_base_ptr+i].p[0] = x;
+                    nodes[nodes_base_ptr+i].p[1] = y;
+                    nodes[nodes_base_ptr+i].p[2] = z;
                 }
 
                 nodes_base_ptr += numNodesInBlock;
@@ -128,7 +128,7 @@ int main(void) {
     // Output loaded nodes and elements (for verification)
     printf("Loaded %d nodes:\n", num_nodes);
     for (int i = 0; i < num_nodes; i++) {
-        printf("Node %d: (%lf, %lf, %lf)\n", nodes[i].id, nodes[i].x, nodes[i].y, nodes[i].z);
+        printf("Node %d: (%lf, %lf, %lf)\n", nodes[i].id, nodes[i].p[0], nodes[i].p[1], nodes[i].p[2]);
     }
 
     printf("\nLoaded %d tetrahedral elements:\n", num_elements);
@@ -136,6 +136,17 @@ int main(void) {
         printf("Element %d: Nodes [%d, %d, %d, %d]\n", elements[i].id, elements[i].node_ids[0],
                elements[i].node_ids[1], elements[i].node_ids[2], elements[i].node_ids[3]);
     }
+
+    // for (int i = 0; i < num_elements; i++) {
+    //     real_t *p0 = nodes[elements[i].node_ids[0]];
+    //     real_t *p1 = nodes[elements[i].node_ids[1]];
+    //     real_t *p2 = nodes[elements[i].node_ids[2]];
+    //     real_t *p3 = nodes[elements[i].node_ids[3]];
+    //     compute_A(p0, p1, p2, p3, macro_J);
+
+    //     solve_using_gradient_descent(tetra_level, nodes, tets, macro_J);
+    // }
+
 
     // Free allocated memory
     free(nodes);
