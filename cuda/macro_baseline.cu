@@ -661,8 +661,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
 
     // Define grid and block sizes
-    int blockSize = BLOCK_SIZE;
-    int gridSizeNodes = (num_nodes + blockSize - 1) / blockSize;
+    // int blockSize = BLOCK_SIZE;
+    // int gridSizeNodes = (num_nodes + blockSize - 1) / blockSize;
 
     // Initialize r = b - A * x and p = r
     int blockSizeMacroTets = BLOCK_SIZE;
@@ -682,12 +682,20 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
     ifLastErrorExists("Kernel launch failed");
 
-    real_t h_dot_r0, h_dot_r1, h_dot_pAp;
-    checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
+    size_t *converged = nullptr;
+    if (converged != nullptr) {
+        checkCudaError(cudaMallocManaged(&converged, sizeof(size_t)));
+    }
+    *converged = 0;
+
+    checkConvergence<<<blockSizeMacroTets, gridSizeMacroTets>>>(tol, d_dot_r0, num_macro_tets, converged);
+
+    //real_t h_dot_r0, h_dot_r1, h_dot_pAp;
+    //checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
 
     // Start Conjugate Gradient iterations
     int iter = 0;
-    while (iter < max_iter && sqrt(h_dot_r0) > tol) {
+    while (iter < max_iter && converged == 0) {
         // Ap = A * p
         cu_macro_tet4_laplacian_apply_kernel<<<blockSizeMacroTets, gridSizeMacroTets>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_p, d_Ap);
 
@@ -723,10 +731,6 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // checkCudaError(cudaMemcpy(&h_dot_r1, d_dot_r1, sizeof(real_t), cudaMemcpyDeviceToHost));
         // printf("Iteration %d, Residual norm: %lf\n", iter, h_dot_r1);
 
-        size_t *converged = nullptr;
-        if (converged != nullptr) {
-            checkCudaError(cudaMallocManaged(&converged, sizeof(size_t)));
-        }
         *converged = 0;
         checkConvergence<<<blockSizeMacroTets, gridSizeMacroTets>>>(tol, d_dot_r1, num_macro_tets, converged);
         // Check for convergence
