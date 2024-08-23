@@ -41,7 +41,7 @@ typedef double real_t;
     }                                                                  \
 }
 
-__global__ void print_matrix(real_t *matrix, int rows, int cols)
+__device__ void print_matrix(real_t *matrix, int rows, int cols)
 {
     for (int i = 0; i < rows; i++)
     {
