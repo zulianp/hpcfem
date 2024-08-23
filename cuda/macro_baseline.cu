@@ -628,7 +628,7 @@ __global__ void vectorAdd(real_t* x, const real_t* p, real_t *alpha, size_t stri
             if (macro_tet_idx == 0) {
                 printf("vecX after vectorAdd: \n");
                 for (int n = 0; n < 100; n += 1) {
-                    printf("%lf ", x[n * stride + e]);
+                    printf("%lf ", x[n * stride + macro_tet_idx]);
                 }
                 printf("\n");
             }
