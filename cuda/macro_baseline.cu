@@ -195,14 +195,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
-        if (e == 0) {
-            printf("vecX: \n");
-            for (int n = 0; n < 100; n += 1) {
-                printf("%lf ", vecX[n * stride + e]);
-            }
-            printf("\nLaplacian of Category %d\n", 0);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("vecX: \n");
+        //     for (int n = 0; n < 100; n += 1) {
+        //         printf("%lf ", vecX[n * stride + e]);
+        //     }
+        //     printf("\nLaplacian of Category %d\n", 0);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         int p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -224,11 +224,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
-                    if (e == 0 && p < 2) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
-                        }
-                    }
+                    // if (e == 0 && p < 2) {
+                    //     for (int n = 0; n < 4; n += 1) {
+                    //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                    //     }
+                    // }
 
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
@@ -253,15 +253,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vecY[e2 * stride + e] += vals_to_scatter[2];
                     vecY[e1 * stride + e] += vals_to_scatter[3];
 
-                    if (e == 0 && p < 2) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
-                        }
-                        printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
-                    }
+                    // if (e == 0 && p < 2) {
+                    //     for (int n = 0; n < 4; n += 1) {
+                    //         printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
+                    //     }
+                    //     printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
+                    // }
 
                     p++;
                 }
@@ -975,28 +975,18 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tets, int num_nodes, real_t *macro_jacobians)
 {
     // Allocate variables for boundary conditions
-    int max_iter = 20;
+    int max_iter = 1000;
     double tol = 1e-2;
     real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
     checkCudaError(cudaMallocHost(&h_r, num_macro_tets * sizeof(real_t) * num_nodes));
 
     // Allocate GPU memory
-    real_t *d_b, *d_x, *d_r, *d_p, *d_Ap, *d_Ax;
-    real_t *d_dot_r0, *d_dot_r1, *d_dot_pAp;
+    real_t *d_b, *d_x, *d_r, *d_Ax;
     checkCudaError(cudaMalloc(&d_b, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_x, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_Ax, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_r, num_macro_tets * num_nodes * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_p, num_macro_tets * num_nodes * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_Ap, num_macro_tets * num_nodes * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_dot_r0, num_macro_tets * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_dot_r1, num_macro_tets * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_dot_pAp, num_macro_tets * sizeof(real_t)));
-
-    real_t *alpha, *beta;
-    checkCudaError(cudaMalloc(&alpha, num_macro_tets * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&beta, num_macro_tets * sizeof(real_t)));
 
     cublasHandle_t cublas_handle;
     cublasCreate(&cublas_handle);
@@ -1021,33 +1011,33 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
         cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
         ifLastErrorExists("Kernel launch failed");
 
-        checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-        printf("initial Ax after cu_macro_tet4_laplacian_apply_kernel: \n");
-        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
-            printf("%lf ", h_x[n]);
-        }
-        printf("\n");
+        // checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        // printf("initial Ax after cu_macro_tet4_laplacian_apply_kernel: \n");
+        // for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        //     printf("%lf ", h_x[n]);
+        // }
+        // printf("\n");
 
         applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_b, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
         ifLastErrorExists("Kernel launch failed");
 
-        checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-        printf("initial Ax after applyDirichlet: \n");
-        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
-            printf("%lf ", h_x[n]);
-        }
-        printf("num_dirichlet_nodes: %d\n", num_dirichlet_nodes);
-        printf("\n");
+        // checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        // printf("initial Ax after applyDirichlet: \n");
+        // for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        //     printf("%lf ", h_x[n]);
+        // }
+        // printf("num_dirichlet_nodes: %d\n", num_dirichlet_nodes);
+        // printf("\n");
 
         computeResidual<<<numBlocks, threadsPerBlock>>>(d_r, d_b, d_Ax, num_macro_tets, stride, num_nodes);
         ifLastErrorExists("Kernel launch failed");
 
-        checkCudaError(cudaMemcpy(h_x, d_r, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-        printf("initial r after computeResidual: \n");
-        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
-            printf("%lf ", h_x[n]);
-        }
-        printf("\n");
+        // checkCudaError(cudaMemcpy(h_r, d_r, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        // printf("initial r after computeResidual: \n");
+        // for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        //     printf("%lf ", h_r[n]);
+        // }
+        // printf("\n");
 
         // cuBLAS for reduction
         // minSquareError computeNorm
@@ -1072,12 +1062,12 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
         vectorUpdate<<<numBlocks, threadsPerBlock>>>(d_x, gamma, d_r, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
         
-        checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-        printf("resulting x from vectorAdd: \n");
-        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
-            printf("%lf ", h_x[n]);
-        }
-        printf("\n");
+        // checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        // printf("resulting x from vectorAdd: \n");
+        // for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        //     printf("%lf ", h_x[n]);
+        // }
+        // printf("\n");
 
         iter++;
     }
@@ -1086,19 +1076,12 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     checkCudaError(cudaFree(d_b));
     checkCudaError(cudaFree(d_x));
     checkCudaError(cudaFree(d_r));
-    checkCudaError(cudaFree(d_p));
-    checkCudaError(cudaFree(d_Ap));
-    checkCudaError(cudaFree(d_dot_r0));
-    checkCudaError(cudaFree(d_dot_r1));
-    checkCudaError(cudaFree(d_dot_pAp));
-
-    checkCudaError(cudaFree(alpha));
-    checkCudaError(cudaFree(beta));
-
     checkCudaError(cudaFree(d_Ax));
 
     // Free allocated memory
     checkCudaError(cudaFree(d_dirichlet_nodes));
+
+    checkCudaError(cudaFreeHost(h_r));
 
     cublasDestroy(cublas_handle);
 
