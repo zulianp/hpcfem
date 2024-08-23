@@ -135,6 +135,13 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
         assert(determinant_3x3(mat_J) > 0);
     }
 
+    printf("Jacobian %d\n", category);
+    print_matrix(macro_J, 3, 3);
+
+    printf("Jacobian of Category %d\n", category);
+    print_matrix(mat_J, 3, 3);
+
+
     inverse_3x3(mat_J, J_inv);
 
     // Transpose J_inv
@@ -178,6 +185,7 @@ void macro_tet4_laplacian_apply(int level, int category, real_t *macro_J, real_t
             local_M[i * 4 + j] = dot_product * determinant_3x3(mat_J) / 6.0;
         }
     }
+
 
     printf("Laplacian of Category %d\n", category);
     print_matrix(local_M, 4, 4);
@@ -1253,7 +1261,7 @@ void set_boundary_conditions(int num_nodes, real_t **rhs, real_t **x, int **diri
 
 int main(void)
 {
-    int tetra_level = 8;
+    int tetra_level = 2;
 
     // Compute the number of nodes
     int nodes = compute_nodes_number(tetra_level);
@@ -1268,9 +1276,9 @@ int main(void)
 
     real_t macro_J[9];
     real_t p0[3] = {0, 0, 0};
-    real_t p1[3] = {1, 0, 0};
-    real_t p2[3] = {0, 1, 0};
-    real_t p3[3] = {0, 0, 1};
+    real_t p1[3] = {3, 0, 0};
+    real_t p2[3] = {0, 7, 0};
+    real_t p3[3] = {0, 0, 11};
     compute_A(p0, p1, p2, p3, macro_J);
 
     // Generate coordinates
@@ -1294,7 +1302,7 @@ int main(void)
     assert(nodes == num_coords);
 
     // Maximum number of iterations
-    int max_iters = 100000;
+    int max_iters = 1;
     real_t gamma = 2*1e-1;
     // real_t gamma = 1;
 

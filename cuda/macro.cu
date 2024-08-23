@@ -120,6 +120,7 @@ __global__ void macro_tet4_laplacian_apply_category_0(int level, real_t *local_M
     // Load the inputs
     wmma::load_matrix_sync(a_frag, local_M, 4);
 
+    // TODO: is this warp level or block level?
     thread_block g = this_thread_block();
     // Choose a leader in the thread block
     if (g.thread_rank() == 0) {
