@@ -650,6 +650,9 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     checkCudaError(cudaMalloc(&alpha, num_macro_tets * sizeof(real_t)));
     checkCudaError(cudaMalloc(&beta, num_macro_tets * sizeof(real_t)));
 
+    cublasHandle_t cublas_handle;
+    cublasCreate(&cublas_handle);
+
     // real_t *d_norm_r;
     // checkCudaError(cudaMalloc(&d_norm_r, sizeof(real_t)));
     size_t *d_dirichlet_nodes;
@@ -680,7 +683,6 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     checkCudaError(cudaMemset(d_dot_r0, 0, num_macro_tets * sizeof(real_t)));
 
     dotProduct<<<numBlocks, threadsPerBlock>>>(d_r, d_r, d_dot_r0, num_macro_tets, stride, num_nodes);
-
     ifLastErrorExists("Kernel launch failed");
 
     size_t *converged = nullptr;
@@ -690,13 +692,20 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     *converged = 0;
 
     checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r0, num_macro_tets, converged);
+    ifLastErrorExists("Kernel launch failed");
+
+    // cuBLAS for reduction
+    // minSquareError computeNorm
+    double result = 0;
+    cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &result);
+    ifLastErrorExists("Kernel launch failed");
 
     //real_t h_dot_r0, h_dot_r1, h_dot_pAp;
     //checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
 
     // Start Conjugate Gradient iterations
     int iter = 0;
-    while (iter < max_iter && converged == 0) {
+    while (iter < max_iter && result > 1e-2) {
         // Ap = A * p
         cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_p, d_Ap);
         ifLastErrorExists("Kernel launch failed");
@@ -715,6 +724,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // alpha = r^T * r / p^T * Ap
         // real_t alpha = h_dot_r0 / h_dot_pAp;
         scalarDivide<<<numBlocks, threadsPerBlock>>>(alpha, d_dot_r0, d_dot_pAp, num_macro_tets);
+        ifLastErrorExists("Kernel launch failed");
 
         // Update x = x + alpha * p
         vectorAdd<<<numBlocks, threadsPerBlock>>>(d_x, d_p, alpha, stride, num_macro_tets, num_nodes);
@@ -735,8 +745,17 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
         *converged = 0;
         checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r1, num_macro_tets, converged);
+        ifLastErrorExists("Kernel launch failed");
+
+
+        // cuBLAS for reduction
+        // minSquareError computeNorm
+        result = 0;
+        cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &result);
+
         // Check for convergence
-        if (*converged == 1) {
+        // *converged == 1
+        if (result < tol) {
             checkCudaError(cudaMemcpy(&h_x, d_x, sizeof(real_t) * num_nodes * num_macro_tets, cudaMemcpyDeviceToHost));
             printf("Converged after %d iterations\n", iter + 1);
             cudaFree(converged);
@@ -752,10 +771,10 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // beta = r1^T * r1 / r0^T * r0
         // real_t beta = h_dot_r1 / h_dot_r0;
         scalarDivide<<<numBlocks, threadsPerBlock>>>(beta, d_dot_r1, d_dot_r0, num_macro_tets);
+        ifLastErrorExists("Kernel launch failed");
 
         // Update p = r + beta * p
         vectorAdd<<<numBlocks, threadsPerBlock>>>(d_p, d_r, beta, stride, num_macro_tets, num_nodes);
-
         ifLastErrorExists("Kernel launch failed");
 
         // Update r0 = r1
@@ -781,6 +800,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
     // Free allocated memory
     checkCudaError(cudaFree(d_dirichlet_nodes));
+
+    cublasDestroy(cublas_handle);
 
     return h_x;
 }
