@@ -680,8 +680,9 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     // Allocate variables for boundary conditions
     int max_iter = 10000;
     double tol = 1e-7;
-    real_t *h_x;
+    real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
+    checkCudaError(cudaMallocHost(&h_r, num_macro_tets * sizeof(real_t) * num_nodes));
 
     // Allocate GPU memory
     real_t *d_b, *d_x, *d_r, *d_p, *d_Ap, *d_Ax;
@@ -762,8 +763,22 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_p, d_Ap);
         ifLastErrorExists("Kernel launch failed");
 
+        checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        printf("resulting y from cu_macro_tet4_laplacian_apply_kernel: \n");
+        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+            printf("%lf ", h_x[n]);
+        }
+        printf("\n");
+
         applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ap, d_p, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
         ifLastErrorExists("Kernel launch failed");
+
+        checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        printf("resulting y from applyDirichlet:  \n");
+        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+            printf("%lf ", h_x[n]);
+        }
+        printf("\n");
 
         // Calculate p^T * Ap
         checkCudaError(cudaMemset(d_dot_pAp, 0, num_macro_tets * sizeof(real_t)));
@@ -781,10 +796,24 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // Update x = x + alpha * p
         vectorAdd<<<numBlocks, threadsPerBlock>>>(d_x, d_p, alpha, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
+        
+        checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        printf("resulting x from vectorAdd: \n");
+        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+            printf("%lf ", h_x[n]);
+        }
+        printf("\n");
 
         // Update r = r - alpha * Ap
         vectorMinus<<<numBlocks, threadsPerBlock>>>(d_r, d_Ap, alpha, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
+
+        checkCudaError(cudaMemcpy(h_r, d_r, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        printf("resulting r from vectorMinus:  \n");
+        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+            printf("%lf ", h_r[n]);
+        }
+        printf("\n");
 
         // Calculate new r^T * r
         checkCudaError(cudaMemset(d_dot_r1, 0, sizeof(real_t) * num_macro_tets));
