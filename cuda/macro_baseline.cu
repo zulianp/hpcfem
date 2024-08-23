@@ -756,13 +756,13 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     // int blockSize = BLOCK_SIZE;
     // int gridSizeNodes = (num_nodes + blockSize - 1) / blockSize;
 
-    // Initialize r = b - A * x and p = r
+    // Initialize r = b - A * x
     int threadsPerBlock = BLOCK_SIZE;
     int numBlocks = (num_macro_tets + threadsPerBlock - 1) / threadsPerBlock;
     cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
     ifLastErrorExists("Kernel launch failed");
 
-    checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
     printf("initial Ax after cu_macro_tet4_laplacian_apply_kernel: \n");
     for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
         printf("%lf ", h_x[n]);
@@ -789,6 +789,9 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         printf("%lf ", h_x[n]);
     }
     printf("\n");
+
+    // Initialize p = r
+    checkCudaError(cudaMemcpy(d_p, d_r, sizeof(real_t) * num_macro_tets * num_nodes, cudaMemcpyDeviceToDevice));
 
     // Calculate the initial dot product r0 = r^T * r
     checkCudaError(cudaMemset(d_dot_r0, 0, num_macro_tets * sizeof(real_t)));
