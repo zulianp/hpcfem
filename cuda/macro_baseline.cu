@@ -665,9 +665,9 @@ void set_boundary_conditions_cuda(size_t num_nodes, real_t *rhs, real_t *x, size
     checkCudaError(cudaMemcpy(d_dirichlet_values, h_dirichlet_values, (*num_dirichlet_nodes) * sizeof(real_t), cudaMemcpyHostToDevice));
 
     // Launch the kernel to set the Dirichlet boundary conditions
-    int blockSize = 256;
-    int gridSize = (num_macro_tets + blockSize - 1) / blockSize;
-    setDirichletBoundaryConditions<<<gridSize, blockSize>>>(*dirichlet_nodes, rhs, x, num_macro_tets, stride, d_dirichlet_values, *num_dirichlet_nodes);
+    int threadsPerBlock = BLOCK_SIZE;
+    int numBlocks = (num_macro_tets + threadsPerBlock - 1) / threadsPerBlock;
+    setDirichletBoundaryConditions<<<numBlocks, threadsPerBlock>>>(*dirichlet_nodes, rhs, x, num_macro_tets, stride, d_dirichlet_values, *num_dirichlet_nodes);
 
     ifLastErrorExists("Kernel launch failed");
 
@@ -713,6 +713,12 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
     // TODO: Set boundary conditions
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
+    checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    printf("initial Ax from set_boundary_conditions_cuda: \n");
+    for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        printf("%lf ", h_x[n]);
+    }
+    printf("\n");
 
     // Define grid and block sizes
     // int blockSize = BLOCK_SIZE;
@@ -723,6 +729,13 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     int numBlocks = (num_macro_tets + threadsPerBlock - 1) / threadsPerBlock;
     cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
     ifLastErrorExists("Kernel launch failed");
+
+    checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    printf("initial Ax from cu_macro_tet4_laplacian_apply_kernel: \n");
+    for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        printf("%lf ", h_x[n]);
+    }
+    printf("\n");
 
     applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_x, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
     ifLastErrorExists("Kernel launch failed");
