@@ -196,6 +196,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
         if (e == 0) {
+            printf("vecX: \n");
             for (int n = 0; n < 100; n += 1) {
                 printf("%lf ", vecX[n * stride + e]);
             }
@@ -223,11 +224,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
-                    // if (e == 0 && p < 20) {
-                    //     for (int n = 0; n < 4; n += 1) {
-                    //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
-                    //     }
-                    // }
+                    if (e == 0 && p < 2) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                        }
+                    }
 
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
@@ -252,15 +253,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vecY[e2 * stride + e] += vals_to_scatter[2];
                     vecY[e1 * stride + e] += vals_to_scatter[3];
 
-                    // if (e == 0 && p < 20) {
-                    //     for (int n = 0; n < 4; n += 1) {
-                    //         printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
-                    //     }
-                    //     printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
-                    // }
+                    if (e == 0 && p < 2) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
+                        }
+                        printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
+                    }
 
                     p++;
                 }
@@ -272,10 +273,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         // Second case
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
 
-        if (e == 0) {
-            printf("Laplacian of Category %d\n", 1);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("Laplacian of Category %d\n", 1);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -327,10 +328,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
 
-        if (e == 0) {
-            printf("Laplacian of Category %d\n", 2);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("Laplacian of Category %d\n", 2);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         // Third case
         p = 0;
@@ -383,10 +384,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
-        if (e == 0) {
-            printf("Laplacian of Category %d\n", 3);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("Laplacian of Category %d\n", 3);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         // Fourth case
         p = 0;
@@ -439,10 +440,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
-        if (e == 0) {
-            printf("Laplacian of Category %d\n", 4);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("Laplacian of Category %d\n", 4);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         // Fifth case
         p = 0;
@@ -496,10 +497,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
-        if (e == 0) {
-            printf("Laplacian of Category %d\n", 5);
-            print_matrix(micro_L, 4, 4);
-        }
+        // if (e == 0) {
+        //     printf("Laplacian of Category %d\n", 5);
+        //     print_matrix(micro_L, 4, 4);
+        // }
 
         // Sixth case
         p = 0;

@@ -3,8 +3,8 @@ import math, os
 
 macro_tets = 1
 
-shown = [False for i in range(6)]
-lapl_shown = [False for i in range(6)]
+shown = [True for i in range(6)]
+lapl_shown = [True for i in range(6)]
 
 def tetrahedron_volume(A, B, C, D):
     # Create matrix with columns as vectors AB, AC, and AD
@@ -126,7 +126,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
                     e1 = p+1
                     e2 = p+level-i-j
                     e3 = p+layer_items-j
-                    print("first", e0-1, e3-1, e2-1, e1-1)
+                    # print("first", e0-1, e3-1, e2-1, e1-1)
 
                     i0.append(e0-1)
                     i1.append(e1-1)
@@ -174,7 +174,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
                     e1 = p-i-j-1+layer_items+level
                     e2 = p-i-j+layer_items+level
                     e3 = p+level-i-j-1+layer_items+level-i-j-1
-                    print("second", e0-1, e3-1, e2-1, e1-1)
+                    # print("second", e0-1, e3-1, e2-1, e1-1)
 
                     i0.append(e0-1)
                     i1.append(e1-1)
@@ -222,7 +222,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
 #                                             np.array([x[e1-1], y[e1-1], z[e1-1]]),
 #                                             np.array([x[e2-1], y[e2-1], z[e2-1]]),
 #                                             np.array([x[e3-1], y[e3-1], z[e3-1]])) > 0)
-                    print("third", e0-1, e3-1, e2-1, e1-1)
+                    # print("third", e0-1, e3-1, e2-1, e1-1)
                     micro_tets.append([ dofs[e0-1], dofs[e1-1], dofs[e2-1], dofs[e3-1] ])
 
                     i0.append(e0-1)
@@ -266,7 +266,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
                     e2 = p-i-j-1+layer_items+level
                     e3 = p+level-i-j-1+layer_items+level-i-j-1
                     micro_tets.append([ dofs[e0-1], dofs[e1-1], dofs[e2-1], dofs[e3-1] ])
-                    print("forth", e0-1, e3-1, e2-1, e1-1)
+                    # print("forth", e0-1, e3-1, e2-1, e1-1)
 
                     i0.append(e0-1)
                     i1.append(e1-1)
@@ -310,7 +310,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
                     e2 = p+layer_items+level-i-j+level-i
                     e3 = p+layer_items+level-i-j+level-i-1
                     
-                    print("fifth", e0-1, e2-1, e1-1, e3-1)
+                    # print("fifth", e0-1, e2-1, e1-1, e3-1)
 
                     i0.append(e0-1)
                     i1.append(e1-1)
@@ -360,7 +360,7 @@ def assemble_macro_elem(micro_elems, tetra_level, nodes, x_coords, y_coords, z_c
                     i3.append(e3-1)
                     category.append(6)
 
-                    print("sixth", e0-1, e2-1, e1-1, e3-1)
+                    # print("sixth", e0-1, e2-1, e1-1, e3-1)
 
                     micro_tets.append([ dofs[e0-1], dofs[e1-1], dofs[e2-1], dofs[e3-1] ])
                 p += 1
@@ -425,6 +425,7 @@ def set_boundary_conditions(nodes) :
 def residual(in_list, tetra_level, nodes, x_coords, y_coords, z_coords, compute_Lapl, dirichlet_nodes, rhs, x) :
     
     Ax = apply_macro_kernel(in_list, tetra_level, nodes, x_coords, y_coords, z_coords, compute_Lapl, x)
+    print(Ax[0:5])
     #print("Ax", Ax)
     for dirichlet_node in dirichlet_nodes :
         Ax[dirichlet_node] = x[dirichlet_node]
@@ -508,7 +509,7 @@ def main() :
     print(len(x_coords), len(x))
     assert(len(x_coords) == len(x))
 
-    max_iters = 1
+    max_iters = 10
     for i in range(0, max_iters) : 
         r = residual(in_list, tetra_level, nodes, x_coords, y_coords, z_coords, compute_Lapl, dirichlet_nodes, rhs, x)
         #print("residual",r)
