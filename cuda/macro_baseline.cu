@@ -684,7 +684,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     ifLastErrorExists("Kernel launch failed");
 
     size_t *converged = nullptr;
-    if (converged != nullptr) {
+    if (converged == nullptr) {
         checkCudaError(cudaMallocManaged(&converged, sizeof(size_t)));
     }
     *converged = 0;
