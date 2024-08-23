@@ -225,7 +225,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
-                    if (e == 0) {
+                    if (e == 0 && p < 20) {
                         for (int n = 0; n < 4; n += 1) {
                             printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
                         }
@@ -249,16 +249,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    if (e == 0) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
-                        }
-                    }
-
                     vecY[e0 * stride + e] += vals_to_scatter[0];
                     vecY[e3 * stride + e] += vals_to_scatter[1];
                     vecY[e2 * stride + e] += vals_to_scatter[2];
                     vecY[e1 * stride + e] += vals_to_scatter[3];
+
+                    if (e == 0 && p < 20) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
+                        }
+                        printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
+                        printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
+                    }
+
 
                     // atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
                     // atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
@@ -465,9 +470,9 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e3 = p + layer_items + level - i - j + level - i - 1;
 
                     vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
+                    vals_gathered[1] = vecX[e2 * stride + e];
+                    vals_gathered[2] = vecX[e1 * stride + e];
+                    vals_gathered[3] = vecX[e3 * stride + e];
 
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
@@ -487,9 +492,9 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    vecY[e2 * stride + e] += vals_to_scatter[1];
+                    vecY[e1 * stride + e] += vals_to_scatter[2];
+                    vecY[e3 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
