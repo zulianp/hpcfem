@@ -195,11 +195,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             macro_J[d] = macro_jacobians[d * stride + e];
         }
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
-
-    // printf("Laplacian of Category %d\n", 0);
-    // print_matrix(micro_L, 4, 4);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 0);
+            print_matrix(micro_L, 4, 4);
+        }
 
         int p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -239,15 +240,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    // atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    // atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    // atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    // atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -257,11 +258,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         // Second case
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
-
-    // printf("Laplacian of Category %d\n", 1);
-    // print_matrix(micro_L, 4, 4);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 1);
+            print_matrix(micro_L, 4, 4);
+        }
 
         p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -282,6 +284,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    if (e == 0) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("vals_gathered[%d]: %lf\n", n, vals_gathered[n]);
+                        }
+                    }
+
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
                     vals_to_scatter[2] = 0;
@@ -299,14 +307,16 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    if (e == 0) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("vals_to_scatter[%d]: %lf\n", n, vals_to_scatter[n]);
+                        }
+                    }
+
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
@@ -315,10 +325,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             p++;
         }
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
 
-    // printf("Laplacian of Category %d\n", 2);
-    // print_matrix(micro_L, 4, 4);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 2);
+            print_matrix(micro_L, 4, 4);
+        }
 
         // Third case
         p = 0;
@@ -358,14 +370,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
@@ -374,10 +382,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             p++;
         }
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
-
-    // printf("Laplacian of Category %d\n", 3);
-    // print_matrix(micro_L, 4, 4);
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 3);
+            print_matrix(micro_L, 4, 4);
+        }
 
         // Fourth case
         p = 0;
@@ -417,14 +426,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
@@ -433,10 +438,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             p++;
         }
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
-
-    // printf("Laplacian of Category %d\n", 0);
-    // print_matrix(micro_L, 4, 4);
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 4);
+            print_matrix(micro_L, 4, 4);
+        }
 
         // Fifth case
         p = 0;
@@ -477,14 +483,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
@@ -493,10 +495,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             p++;
         }
 
-    jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
-
-    // printf("Laplacian of Category %d\n", 5);
-    // print_matrix(micro_L, 4, 4);
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
+        if (e == 0) {
+            printf("Laplacian of Category %d\n", 5);
+            print_matrix(micro_L, 4, 4);
+        }
 
         // Sixth case
         p = 0;
@@ -535,15 +538,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    // vecY[e0 * stride + e] += vals_to_scatter[0];
-                    // vecY[e3 * stride + e] += vals_to_scatter[1];
-                    // vecY[e2 * stride + e] += vals_to_scatter[2];
-                    // vecY[e1 * stride + e] += vals_to_scatter[3];
-                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
-
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
                     p++;
                 }
                 p++;
