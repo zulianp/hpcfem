@@ -555,12 +555,12 @@ int compute_tets_number(int tetra_level)
 }
 
 // Kernel to apply Dirichlet boundary conditions
-__global__ void applyDirichlet(real_t *Ax, real_t *x, size_t num_macro_tets, size_t stride, size_t *dirichlet_nodes, size_t num_dirichlet_nodes) {
+__global__ void applyDirichlet(real_t *Ax, real_t *rhs, size_t num_macro_tets, size_t stride, size_t *dirichlet_nodes, size_t num_dirichlet_nodes) {
     for (size_t idx = blockIdx.x * blockDim.x + threadIdx.x; idx < num_macro_tets;
          idx += blockDim.x * gridDim.x) {
             for (int j = 0; j < num_dirichlet_nodes; j += 1) {
                 size_t dirichlet_node_idx = dirichlet_nodes[j];
-                Ax[dirichlet_node_idx * stride + idx] = x[dirichlet_node_idx * stride + idx];
+                Ax[dirichlet_node_idx * stride + idx] = rhs[dirichlet_node_idx * stride + idx];
             }
     }
 }
@@ -714,7 +714,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     // TODO: Set boundary conditions
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
     checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-    printf("initial Ax from set_boundary_conditions_cuda: \n");
+
+    printf("initial x from set_boundary_conditions_cuda: \n");
     for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
         printf("%lf ", h_x[n]);
     }
@@ -731,17 +732,31 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     ifLastErrorExists("Kernel launch failed");
 
     checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
-    printf("initial Ax from cu_macro_tet4_laplacian_apply_kernel: \n");
+    printf("initial Ax after cu_macro_tet4_laplacian_apply_kernel: \n");
     for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
         printf("%lf ", h_x[n]);
     }
     printf("\n");
 
-    applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_x, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
+    applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_b, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
     ifLastErrorExists("Kernel launch failed");
+
+    checkCudaError(cudaMemcpy(h_x, d_Ax, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    printf("initial Ax after applyDirichlet: \n");
+    for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        printf("%lf ", h_x[n]);
+    }
+    printf("\n");
 
     computeResidual<<<numBlocks, threadsPerBlock>>>(d_r, d_b, d_Ax, num_macro_tets, stride, num_nodes);
     ifLastErrorExists("Kernel launch failed");
+
+    checkCudaError(cudaMemcpy(h_x, d_r, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    printf("initial r after computeResidual: \n");
+    for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
+        printf("%lf ", h_x[n]);
+    }
+    printf("\n");
 
     // Calculate the initial dot product r0 = r^T * r
     checkCudaError(cudaMemset(d_dot_r0, 0, num_macro_tets * sizeof(real_t)));
@@ -749,14 +764,14 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     dotProduct<<<numBlocks, threadsPerBlock>>>(d_r, d_r, d_dot_r0, num_macro_tets, stride, num_nodes);
     ifLastErrorExists("Kernel launch failed");
 
-    size_t *converged = nullptr;
-    if (converged == nullptr) {
-        checkCudaError(cudaMallocManaged(&converged, sizeof(size_t)));
-    }
-    *converged = 0;
+    // size_t *converged = nullptr;
+    // if (converged == nullptr) {
+    //     checkCudaError(cudaMallocManaged(&converged, sizeof(size_t)));
+    // }
+    // *converged = 0;
 
-    checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r0, num_macro_tets, converged);
-    ifLastErrorExists("Kernel launch failed");
+    // checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r0, num_macro_tets, converged);
+    // ifLastErrorExists("Kernel launch failed");
 
     // cuBLAS for reduction
     // minSquareError computeNorm
@@ -765,9 +780,6 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     ifLastErrorExists("Kernel launch failed");
 
     printf("The initial global 2-norm is %lf\n", result);
-
-    //real_t h_dot_r0, h_dot_r1, h_dot_pAp;
-    //checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
 
     // Start Conjugate Gradient iterations
     int iter = 0;
@@ -783,7 +795,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         }
         printf("\n");
 
-        applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ap, d_p, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
+        applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ap, d_b, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
         ifLastErrorExists("Kernel launch failed");
 
         checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
