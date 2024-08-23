@@ -239,10 +239,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -294,10 +299,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -349,10 +358,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -404,10 +417,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -460,10 +477,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -514,10 +535,14 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
+                    // vecY[e0 * stride + e] += vals_to_scatter[0];
+                    // vecY[e3 * stride + e] += vals_to_scatter[1];
+                    // vecY[e2 * stride + e] += vals_to_scatter[2];
+                    // vecY[e1 * stride + e] += vals_to_scatter[3];
+                    atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
+                    atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
+                    atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
+                    atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
 
                     p++;
                 }
@@ -746,6 +771,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
         printf("%lf ", h_x[n]);
     }
+    printf("num_dirichlet_nodes: %d\n", num_dirichlet_nodes);
     printf("\n");
 
     computeResidual<<<numBlocks, threadsPerBlock>>>(d_r, d_b, d_Ax, num_macro_tets, stride, num_nodes);
