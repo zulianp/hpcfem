@@ -609,6 +609,9 @@ __global__ void dotProduct(const real_t* a, const real_t* b, real_t* result, siz
             for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
                 result[macro_tet_idx] += a[node_idx * stride + macro_tet_idx] * b[node_idx * stride + macro_tet_idx];
             }
+            if (macro_tet_idx == 0) {
+                printf("dotProduct of %d: %lf\n", macro_tet_idx, result[macro_tet_idx]);
+            }
     }
 }
 
@@ -620,6 +623,14 @@ __global__ void vectorAdd(real_t* x, const real_t* p, real_t *alpha, size_t stri
             // iterate over the local nodes
             for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
                 x[node_idx * stride + macro_tet_idx] += alpha[macro_tet_idx] * p[node_idx * stride + macro_tet_idx];
+            }
+
+            if (macro_tet_idx == 0) {
+                printf("vecX after vectorAdd: \n");
+                for (int n = 0; n < 100; n += 1) {
+                    printf("%lf ", x[n * stride + e]);
+                }
+                printf("\n");
             }
     }
 
@@ -645,6 +656,9 @@ __global__ void scalarDivide(real_t* alpha, const real_t* up, real_t *down, size
          macro_tet_idx += blockDim.x * gridDim.x) {
             // iterate over the local nodes
             alpha[macro_tet_idx] = up[macro_tet_idx] / down[macro_tet_idx];
+            if (macro_tet_idx == 0) {
+                printf("scalarDivide of %lf/%lf: %lf\n", up[macro_tet_idx], down[macro_tet_idx], alpha[macro_tet_idx]);
+            }
     }
 
 }
