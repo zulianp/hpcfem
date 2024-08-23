@@ -967,7 +967,7 @@ int main(void) {
     int num_nodes = compute_nodes_number(tetra_level);
     int num_micro_tets = compute_tets_number(tetra_level);
 
-    int num_macro_tets = 100000;
+    int num_macro_tets = 10;
 
     real_t *macro_jacobians, *h_macro_jacobians;
     checkCudaError(cudaMallocHost(&h_macro_jacobians, sizeof(real_t) * 9 * num_macro_tets));
