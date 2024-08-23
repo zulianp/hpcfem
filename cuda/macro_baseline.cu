@@ -765,7 +765,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
         checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
         printf("resulting y from cu_macro_tet4_laplacian_apply_kernel: \n");
-        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
             printf("%lf ", h_x[n]);
         }
         printf("\n");
@@ -775,7 +775,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
         checkCudaError(cudaMemcpy(h_x, d_Ap, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
         printf("resulting y from applyDirichlet:  \n");
-        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
             printf("%lf ", h_x[n]);
         }
         printf("\n");
@@ -799,7 +799,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         
         checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
         printf("resulting x from vectorAdd: \n");
-        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
             printf("%lf ", h_x[n]);
         }
         printf("\n");
@@ -810,7 +810,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
         checkCudaError(cudaMemcpy(h_r, d_r, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
         printf("resulting r from vectorMinus:  \n");
-        for (int n = 0; n < num_nodes; n += num_macro_tets) {
+        for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
             printf("%lf ", h_r[n]);
         }
         printf("\n");
