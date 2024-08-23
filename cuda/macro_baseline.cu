@@ -779,7 +779,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         ifLastErrorExists("Kernel launch failed");
 
         // Update r0 = r1
-        d_dot_r0 = d_dot_r1;
+        checkCudaError(cudaMemcpy(d_dot_r0, d_dot_r1, sizeof(real_t) * num_macro_tets, cudaMemcpyDeviceToDevice));
+        // d_dot_r0 = d_dot_r1;
 
         iter++;
     }
