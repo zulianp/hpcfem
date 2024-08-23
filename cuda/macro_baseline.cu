@@ -681,6 +681,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     int blockSizeMacroTets = BLOCK_SIZE;
     int gridSizeMacroTets = (num_macro_tets + blockSizeMacroTets - 1) / blockSizeMacroTets;
     cu_macro_tet4_laplacian_apply_kernel<<<blockSizeMacroTets, gridSizeMacroTets>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
+    ifLastErrorExists("Kernel launch failed");
 
     applyDirichlet<<<blockSizeMacroTets, gridSizeMacroTets>>>(d_Ax, d_x, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
     ifLastErrorExists("Kernel launch failed");
@@ -711,6 +712,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     while (iter < max_iter && converged == 0) {
         // Ap = A * p
         cu_macro_tet4_laplacian_apply_kernel<<<blockSizeMacroTets, gridSizeMacroTets>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_p, d_Ap);
+        ifLastErrorExists("Kernel launch failed");
 
         applyDirichlet<<<blockSizeMacroTets, gridSizeMacroTets>>>(d_Ap, d_p, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
         ifLastErrorExists("Kernel launch failed");
