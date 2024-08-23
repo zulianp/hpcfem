@@ -622,13 +622,34 @@ __global__ void vectorAdd(real_t *y, const real_t *alpha, const real_t *x, const
          macro_tet_idx += blockDim.x * gridDim.x) {
             // iterate over the local nodes
             for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
-                y[node_idx * stride + macro_tet_idx] = alpha[macro_tet_idx] * x[node_idx * stride + macro_tet_idx] + b[node_idx * stride + macro_tet_idx] ;
+                y[node_idx * stride + macro_tet_idx] = alpha[macro_tet_idx] * x[node_idx * stride + macro_tet_idx] + b[node_idx * stride + macro_tet_idx];
             }
 
             if (macro_tet_idx == 0) {
                 printf("vecX after vectorAdd: \n");
                 for (int n = 0; n < 100; n += 1) {
                     printf("%lf ", y[n * stride + macro_tet_idx]);
+                }
+                printf("\n");
+            }
+    }
+
+}
+
+// Kernel for vector update: x += alpha * r 
+__global__ void vectorUpdate(real_t *x, const real_t alpha, const real_t *r, size_t stride, size_t num_macro_tets, size_t num_local_nodes) {
+    // iterate over some tetrahedrons
+    for (size_t macro_tet_idx = blockIdx.x * blockDim.x + threadIdx.x; macro_tet_idx < num_macro_tets;
+         macro_tet_idx += blockDim.x * gridDim.x) {
+            // iterate over the local nodes
+            for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
+                x[node_idx * stride + macro_tet_idx] = alpha * r[node_idx * stride + macro_tet_idx];
+            }
+
+            if (macro_tet_idx == 0) {
+                printf("vecX after vectorAdd: \n");
+                for (int n = 0; n < 100; n += 1) {
+                    printf("%lf ", x[n * stride + macro_tet_idx]);
                 }
                 printf("\n");
             }
@@ -1042,13 +1063,13 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
             for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
                 printf("%lf ", h_x[n]);
             }
-            printf("Converged after %d iterations, 2-norm: %lf\n", iter, result);
+            printf("Converged after %d iterations, 2-norm: %lf\n", iter, norm_r);
             // cudaFree(converged);
             break;
         }
 
         // Update x = x + alpha * p
-        vectorAdd<<<numBlocks, threadsPerBlock>>>(d_x, gamma, d_r, d_x, stride, num_macro_tets, num_nodes);
+        vectorUpdate<<<numBlocks, threadsPerBlock>>>(d_x, gamma, d_r, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
         
         checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
