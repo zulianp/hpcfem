@@ -40,6 +40,19 @@ typedef double real_t;
     }                                                                  \
 }
 
+void print_matrix(real_t *matrix, int rows, int cols)
+{
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < cols; j++)
+        {
+            printf("%f ", matrix[i * cols + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
 real_t determinant_3x3(real_t *m) {
     // computes the inverse of a matrix m
     double det = m[0*3+0] * (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) -
@@ -230,8 +243,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
 
-    printf("Laplacian of Category %d\n", 1);
-    print_matrix(micro_L, 4, 4);
+    // printf("Laplacian of Category %d\n", 1);
+    // print_matrix(micro_L, 4, 4);
 
         p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -278,8 +291,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
 
-    printf("Laplacian of Category %d\n", 2);
-    print_matrix(micro_L, 4, 4);
+    // printf("Laplacian of Category %d\n", 2);
+    // print_matrix(micro_L, 4, 4);
 
         // Third case
         p = 0;
@@ -328,8 +341,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
 
-    printf("Laplacian of Category %d\n", 3);
-    print_matrix(micro_L, 4, 4);
+    // printf("Laplacian of Category %d\n", 3);
+    // print_matrix(micro_L, 4, 4);
 
         // Fourth case
         p = 0;
@@ -378,8 +391,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
 
-    printf("Laplacian of Category %d\n", 0);
-    print_matrix(micro_L, 4, 4);
+    // printf("Laplacian of Category %d\n", 0);
+    // print_matrix(micro_L, 4, 4);
 
         // Fifth case
         p = 0;
@@ -429,8 +442,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
 
-    printf("Laplacian of Category %d\n", 5);
-    print_matrix(micro_L, 4, 4);
+    // printf("Laplacian of Category %d\n", 5);
+    // print_matrix(micro_L, 4, 4);
 
         // Sixth case
         p = 0;
