@@ -222,6 +222,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    if (e == 0) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                        }
+                    }
+
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
                     vals_to_scatter[2] = 0;
@@ -238,6 +244,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         }
                         assert(vals_gathered[n] == vals_gathered[n]);
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    }
+
+                    if (e == 0) {
+                        for (int n = 0; n < 4; n += 1) {
+                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
+                        }
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -284,12 +296,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
-                    if (e == 0) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("vals_gathered[%d]: %lf\n", n, vals_gathered[n]);
-                        }
-                    }
-
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
                     vals_to_scatter[2] = 0;
@@ -305,12 +311,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         }
                         assert(vals_gathered[n] == vals_gathered[n]);
                         assert(vals_to_scatter[n] == vals_to_scatter[n]);
-                    }
-
-                    if (e == 0) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("vals_to_scatter[%d]: %lf\n", n, vals_to_scatter[n]);
-                        }
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
