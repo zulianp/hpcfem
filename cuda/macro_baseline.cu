@@ -162,13 +162,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         const size_t stride,  // Stride here represents the number of macro-elements (aligned to 256 bytes?)
         int tetra_level, 
         const real_t *const macro_jacobians,
-        const real_t *const global_x,
-        real_t *const global_y) {
+        const real_t *const vecX,
+        real_t *const vecY) {
+
+    int level = tetra_level + 1;
 
     for (size_t e = blockIdx.x * blockDim.x + threadIdx.x; e < nelements;
          e += blockDim.x * gridDim.x) {
-        geom_t macro_J[9];
-        geom_t micro_L[16];
+        real_t macro_J[9];
+        real_t micro_L[16];
 #pragma unroll(9)
         for (int d = 0; d < 9; d++) {
             macro_J[d] = macro_jacobians[d * stride + e];
@@ -176,8 +178,9 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
-    printf("Laplacian of Category %d\n", 0);
-    print_matrix(micro_L, 4, 4);
+
+    // printf("Laplacian of Category %d\n", 0);
+    // print_matrix(micro_L, 4, 4);
 
         int p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -230,7 +233,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     printf("Laplacian of Category %d\n", 1);
     print_matrix(micro_L, 4, 4);
 
-        int p = 0;
+        p = 0;
         for (int i = 0; i < level - 1; i++)
         {
             int layer_items = (level - i) * (level - i - 1) / 2;
@@ -279,7 +282,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     print_matrix(micro_L, 4, 4);
 
         // Third case
-        int p = 0;
+        p = 0;
 
         for (int i = 0; i < level - 1; i++)
         {
@@ -329,7 +332,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     print_matrix(micro_L, 4, 4);
 
         // Fourth case
-        int p = 0;
+        p = 0;
 
         for (int i = 0; i < level - 1; i++)
         {
@@ -343,17 +346,28 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e1 = p + level - i - j - 1;
                     int e2 = p + layer_items + level - i - j - 1;
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-                    int es[4] = {e0, e1, e2, e3};
 
-                    // printf("Fourth: %d %d %d %d\n", e0, e3, e2, e1);
-                    for (int i = 0; i < 4; i++) {
-                        for (int j = 0; j < 4; j++) {
-                            vecY[es[j]] += local_M[i * 4 + j] * vecX[es[i]];
-                            assert(!isnan(local_M[i * 4 + j]));
-                            assert(!isnan(vecX[es[i]]));
-                            assert(!isnan(vecY[es[j]]));
+      real_t vals_gathered[4];
+      real_t vals_to_scatter[4];
+
+                    vals_gathered[0] = vecX[e0 * stride + e];
+                    vals_gathered[1] = vecX[e3 * stride + e];
+                    vals_gathered[2] = vecX[e2 * stride + e];
+                    vals_gathered[3] = vecX[e1 * stride + e];
+
+                    for (int n = 0; n < 4; n++) {
+                        for (int m = 0; m < 4; m++) {
+                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            // assert(!isnan(micro_L[i * 4 + j]));
+                            // assert(!isnan(vecX[es[i]]));
+                            // assert(!isnan(vecY[es[j]]));
                         }
                     }
+
+                    vecY[e0 * stride + e] += vals_to_scatter[0];
+                    vecY[e3 * stride + e] += vals_to_scatter[1];
+                    vecY[e2 * stride + e] += vals_to_scatter[2];
+                    vecY[e1 * stride + e] += vals_to_scatter[3];
 
                     p++;
                 }
@@ -368,7 +382,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     print_matrix(micro_L, 4, 4);
 
         // Fifth case
-        int p = 0;
+        p = 0;
 
         for (int i = 1; i < level - 1; i++)
         {
@@ -419,7 +433,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     print_matrix(micro_L, 4, 4);
 
         // Sixth case
-        int p = 0;
+        p = 0;
         for (int i = 0; i < level - 1; i++)
         {
             int layer_items = (level - i) * (level - i - 1) / 2;
@@ -551,7 +565,7 @@ __global__ void scalarDivide(real_t* alpha, const real_t* up, real_t *down, size
 __global__ void checkConvergence(const real_t tol, const real_t* residual, int num_macro_tets, size_t* converged) {
     for (size_t macro_tet_idx = blockIdx.x * blockDim.x + threadIdx.x; macro_tet_idx < num_macro_tets;
          macro_tet_idx += blockDim.x * gridDim.x) {
-        if (residual[i] >= tol * tol) {
+        if (residual[macro_tet_idx] >= tol * tol) {
             *converged = 0;
             return;
         }
@@ -616,13 +630,19 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     checkCudaError(cudaMalloc(&d_p, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_Ap, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_dot_r0, num_macro_tets * sizeof(real_t)));
-    checkCudaError(cudaMalloc(&d_dot_r1, num_macro_tetfs * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&d_dot_r1, num_macro_tets * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_dot_pAp, num_macro_tets * sizeof(real_t)));
+
+    real_t *alpha, *beta;
+    checkCudaError(cudaMalloc(&alpha, num_macro_tets * sizeof(real_t)));
+    checkCudaError(cudaMalloc(&beta, num_macro_tets * sizeof(real_t)));
 
     // real_t *d_norm_r;
     // checkCudaError(cudaMalloc(&d_norm_r, sizeof(real_t)));
     size_t *d_dirichlet_nodes;
     size_t num_dirichlet_nodes;
+
+    int stride = num_macro_tets;
 
     // TODO: Set boundary conditions
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
@@ -735,6 +755,9 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     checkCudaError(cudaFree(d_dot_r0));
     checkCudaError(cudaFree(d_dot_r1));
     checkCudaError(cudaFree(d_dot_pAp));
+
+    checkCudaError(cudaFree(alpha));
+    checkCudaError(cudaFree(beta));
 
     checkCudaError(cudaFree(d_Ax));
 
