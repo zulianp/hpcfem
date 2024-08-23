@@ -967,7 +967,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tets, int num_nodes, real_t *macro_jacobians)
 {
     // Allocate variables for boundary conditions
-    int max_iter = 100000;
+    int max_iter = 1000;
     double tol = 1e-2;
     real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
@@ -994,7 +994,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     int threadsPerBlock = BLOCK_SIZE;
     int numBlocks = (num_macro_tets + threadsPerBlock - 1) / threadsPerBlock;
 
-    // Start Conjugate Gradient iterations
+    // Start Gradient Descent iterations
     int iter = 0;
     real_t gamma = 7 * 1e-1;
     while (iter < max_iter) {
