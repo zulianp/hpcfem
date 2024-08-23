@@ -849,10 +849,9 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // checkCudaError(cudaMemcpy(&h_dot_r1, d_dot_r1, sizeof(real_t), cudaMemcpyDeviceToHost));
         // printf("Iteration %d, Residual norm: %lf\n", iter, h_dot_r1);
 
-        *converged = 0;
-        checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r1, num_macro_tets, converged);
-        ifLastErrorExists("Kernel launch failed");
-
+        // *converged = 0;
+        // checkConvergence<<<numBlocks, threadsPerBlock>>>(tol, d_dot_r1, num_macro_tets, converged);
+        // ifLastErrorExists("Kernel launch failed");
 
         // cuBLAS for reduction
         // minSquareError computeNorm
@@ -865,8 +864,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // *converged == 1
         if (result < tol) {
             checkCudaError(cudaMemcpy(&h_x, d_x, sizeof(real_t) * num_nodes * num_macro_tets, cudaMemcpyDeviceToHost));
-            printf("Converged after %d iterations\n", iter + 1);
-            cudaFree(converged);
+            printf("Converged after %d iterations, 2-norm: %lf\n", iter + 1, result);
+            // cudaFree(converged);
 
             // for (int k = 0; k < num_nodes; k++)
             // {
