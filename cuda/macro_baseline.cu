@@ -551,6 +551,19 @@ __global__ void vectorAdd(real_t* x, const real_t* p, real_t *alpha, size_t stri
 
 }
 
+// Kernel for vector update: x = x - alpha * p
+__global__ void vectorMinus(real_t* x, const real_t* p, real_t *alpha, size_t stride, size_t num_macro_tets, size_t num_local_nodes) {
+    // iterate over some tetrahedrons
+    for (size_t macro_tet_idx = blockIdx.x * blockDim.x + threadIdx.x; macro_tet_idx < num_macro_tets;
+         macro_tet_idx += blockDim.x * gridDim.x) {
+            // iterate over the local nodes
+            for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
+                x[node_idx * stride + macro_tet_idx] -= alpha[macro_tet_idx] * p[node_idx * stride + macro_tet_idx];
+            }
+    }
+
+}
+
 // Kernel for division update: alpha = up / down
 __global__ void scalarDivide(real_t* alpha, const real_t* up, real_t *down, size_t num_macro_tets) {
     // iterate over some tetrahedrons
@@ -654,7 +667,6 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     // Initialize r = b - A * x and p = r
     int blockSizeMacroTets = BLOCK_SIZE;
     int gridSizeMacroTets = (num_macro_tets + blockSizeMacroTets - 1) / blockSizeMacroTets;
-    int stride = num_macro_tets;
     cu_macro_tet4_laplacian_apply_kernel<<<blockSizeMacroTets, gridSizeMacroTets>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
 
     applyDirichlet<<<blockSizeMacroTets, gridSizeMacroTets>>>(d_Ax, d_x, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
@@ -699,7 +711,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         ifLastErrorExists("Kernel launch failed");
 
         // Update r = r - alpha * Ap
-        vectorAdd<<<blockSizeMacroTets, gridSizeMacroTets>>>(d_r, d_Ap, -alpha, stride, num_macro_tets, num_nodes);
+        vectorMinus<<<blockSizeMacroTets, gridSizeMacroTets>>>(d_r, d_Ap, alpha, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
 
         // Calculate new r^T * r
