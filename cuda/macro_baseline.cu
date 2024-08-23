@@ -645,6 +645,15 @@ __global__ void vectorMinus(real_t* x, const real_t* p, real_t *alpha, size_t st
             for (size_t node_idx = 0; node_idx < num_local_nodes; node_idx += 1) {
                 x[node_idx * stride + macro_tet_idx] -= alpha[macro_tet_idx] * p[node_idx * stride + macro_tet_idx];
             }
+
+            if (macro_tet_idx == 0) {
+                printf("p in vectorMinus: \n");
+                for (int n = 0; n < 100; n += 1) {
+                    printf("%lf ", p[n * stride + macro_tet_idx]);
+                }
+                printf("\n");
+                printf("alpha: %lf\n", alpha[macro_tet_idx]);
+            }
     }
 
 }
@@ -856,7 +865,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // checkCudaError(cudaMemcpy(&h_dot_pAp, d_dot_pAp, sizeof(real_t), cudaMemcpyDeviceToHost));
 
         // alpha = r^T * r / p^T * Ap
-        // real_t alpha = h_dot_r0 / h_dot_pAp;
+
+        // Calculate alpha = dot_r0 / dot_pAp;
         scalarDivide<<<numBlocks, threadsPerBlock>>>(alpha, d_dot_r0, d_dot_pAp, num_macro_tets);
         ifLastErrorExists("Kernel launch failed");
 
