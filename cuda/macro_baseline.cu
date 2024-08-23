@@ -12,7 +12,7 @@
 #include <cooperative_groups.h>
 #include <cublas_v2.h>
 
-// nvcc macro.cu --std=c++11 -o cargo -arch=sm_75 -g -lineinfo -lcublas
+// nvcc macro.cu --std=c++11 -o cargo -arch=sm_75 -g -G -lcublas
 using namespace nvcuda;
 using namespace cooperative_groups;
 
@@ -221,13 +221,22 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -268,13 +277,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -315,13 +332,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -362,13 +387,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -410,13 +443,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
@@ -456,13 +497,21 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
+                    vals_to_scatter[0] = 0;
+                    vals_to_scatter[1] = 0;
+                    vals_to_scatter[2] = 0;
+                    vals_to_scatter[3] = 0;
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
                             vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
+                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
                             // assert(!isnan(micro_L[i * 4 + j]));
                             // assert(!isnan(vecX[es[i]]));
                             // assert(!isnan(vecY[es[j]]));
                         }
+                        assert(vals_gathered[n] == vals_gathered[n]);
+                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
                     }
 
                     vecY[e0 * stride + e] += vals_to_scatter[0];
