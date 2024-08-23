@@ -90,8 +90,6 @@ __device__ void jacobian_to_laplacian(real_t *macro_J, real_t *micro_L, int tetr
     };
     real_t grad_phi[4][3];
 
-    int layer_level = tetra_level + 1;
-
     // have to match the row/col order of compute_A
     real_t u[3] = {macro_J[0], macro_J[1], macro_J[2]};
     real_t v[3] = {macro_J[3], macro_J[4], macro_J[5]};
@@ -101,48 +99,48 @@ __device__ void jacobian_to_laplacian(real_t *macro_J, real_t *micro_L, int tetr
         // [u | v | w]
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                micro_J[i * 3 + j] = macro_J[i * 3 + j] / layer_level;
+                micro_J[i * 3 + j] = macro_J[i * 3 + j] / tetra_level;
             }
         }
         assert(determinant_3x3(micro_J) > 0);
     } else if (category == 1) {
         // [-u + w | w | -u + v + w]
         for (int i = 0; i < 3; i++) {
-            micro_J[i * 3 + 0] = (-u[i] + w[i]) / layer_level;
-            micro_J[i * 3 + 1] = (w[i]) / layer_level;
-            micro_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / layer_level;
+            micro_J[i * 3 + 0] = (-u[i] + w[i]) / tetra_level;
+            micro_J[i * 3 + 1] = (w[i]) / tetra_level;
+            micro_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / tetra_level;
         }
         assert(determinant_3x3(micro_J) > 0);
     } else if (category == 2) {
         // [v | -u + v + w | w]
         for (int i = 0; i < 3; i++) {
-            micro_J[i * 3 + 0] = v[i] / layer_level;
-            micro_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / layer_level;
-            micro_J[i * 3 + 2] = (w[i]) / layer_level;
+            micro_J[i * 3 + 0] = v[i] / tetra_level;
+            micro_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / tetra_level;
+            micro_J[i * 3 + 2] = (w[i]) / tetra_level;
         }
         assert(determinant_3x3(micro_J) > 0);
     } else if (category == 3) {
         // [-u + v | -u + w | -u + v + w]
         for (int i = 0; i < 3; i++) {
-            micro_J[i * 3 + 0] = (-u[i] + v[i]) / layer_level;
-            micro_J[i * 3 + 1] = (-u[i] + w[i]) / layer_level;
-            micro_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / layer_level;
+            micro_J[i * 3 + 0] = (-u[i] + v[i]) / tetra_level;
+            micro_J[i * 3 + 1] = (-u[i] + w[i]) / tetra_level;
+            micro_J[i * 3 + 2] = (-u[i] + v[i] + w[i]) / tetra_level;
         }
         assert(determinant_3x3(micro_J) > 0);
     } else if (category == 4) {
         // [-v + w | w | -u + w]
         for (int i = 0; i < 3; i++) {
-            micro_J[i * 3 + 0] = (-v[i] + w[i]) / layer_level;
-            micro_J[i * 3 + 1] = (w[i]) / layer_level;
-            micro_J[i * 3 + 2] = (-u[i] + w[i]) / layer_level;
+            micro_J[i * 3 + 0] = (-v[i] + w[i]) / tetra_level;
+            micro_J[i * 3 + 1] = (w[i]) / tetra_level;
+            micro_J[i * 3 + 2] = (-u[i] + w[i]) / tetra_level;
         }
         assert(determinant_3x3(micro_J) > 0);
     } else if (category == 5) {
         // [-u + v | -u + v + w | v]
         for (int i = 0; i < 3; i++) {
-            micro_J[i * 3 + 0] = (-u[i] + v[i]) / layer_level;
-            micro_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / layer_level;
-            micro_J[i * 3 + 2] = (v[i]) / layer_level;
+            micro_J[i * 3 + 0] = (-u[i] + v[i]) / tetra_level;
+            micro_J[i * 3 + 1] = (-u[i] + v[i] + w[i]) / tetra_level;
+            micro_J[i * 3 + 2] = (v[i]) / tetra_level;
         }
         assert(determinant_3x3(micro_J) > 0);
     }
@@ -225,11 +223,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vals_gathered[2] = vecX[e2 * stride + e];
                     vals_gathered[3] = vecX[e1 * stride + e];
 
-                    if (e == 0 && p < 20) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
-                        }
-                    }
+                    // if (e == 0 && p < 20) {
+                    //     for (int n = 0; n < 4; n += 1) {
+                    //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                    //     }
+                    // }
 
                     vals_to_scatter[0] = 0;
                     vals_to_scatter[1] = 0;
@@ -254,21 +252,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     vecY[e2 * stride + e] += vals_to_scatter[2];
                     vecY[e1 * stride + e] += vals_to_scatter[3];
 
-                    if (e == 0 && p < 20) {
-                        for (int n = 0; n < 4; n += 1) {
-                            printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
-                        }
-                        printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
-                        printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
-                    }
-
-
-                    // atomicAdd(&vecY[e0 * stride + e], vals_to_scatter[0]);
-                    // atomicAdd(&vecY[e3 * stride + e], vals_to_scatter[1]);
-                    // atomicAdd(&vecY[e2 * stride + e], vals_to_scatter[2]);
-                    // atomicAdd(&vecY[e1 * stride + e], vals_to_scatter[3]);
+                    // if (e == 0 && p < 20) {
+                    //     for (int n = 0; n < 4; n += 1) {
+                    //         printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
+                    //     }
+                    //     printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
+                    //     printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
+                    // }
 
                     p++;
                 }

@@ -479,9 +479,9 @@ def generate_coords(tetra_level) :
     for k in range(0, tetra_level + 1):
         for j in range(0, tetra_level - k + 1):
             for i in range(0, tetra_level - j - k + 1):
-                x_coords.append(3 * i / tetra_level)
-                y_coords.append(7 * j / tetra_level)
-                z_coords.append(11 * k / tetra_level)
+                x_coords.append(1 * i / tetra_level)
+                y_coords.append(1 * j / tetra_level)
+                z_coords.append(1 * k / tetra_level)
 
     # print(x_coords)
     # print(y_coords)
@@ -497,7 +497,7 @@ def main() :
 
     # compute the number of elems
 
-    tetra_level = 3
+    tetra_level = 8
 
     x_coords, y_coords, z_coords = generate_coords(tetra_level)
 
