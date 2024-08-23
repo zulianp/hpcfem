@@ -10,8 +10,9 @@
 #include <mma.h>
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
+#include <cublas_v2.h>
 
-// nvcc macro.cu --std=c++11 -o cargo -arch=sm_75 -g -lineinfo
+// nvcc macro.cu --std=c++11 -o cargo -arch=sm_75 -g -lineinfo -lcublas
 using namespace nvcuda;
 using namespace cooperative_groups;
 
