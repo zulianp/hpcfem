@@ -701,6 +701,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
     cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &result);
     ifLastErrorExists("Kernel launch failed");
 
+    printf("The initial global 2-norm is %lf\n", result);
+
     //real_t h_dot_r0, h_dot_r1, h_dot_pAp;
     //checkCudaError(cudaMemcpy(&h_dot_r0, d_dot_r0, sizeof(real_t), cudaMemcpyDeviceToHost));
 
@@ -753,6 +755,8 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
         // minSquareError computeNorm
         result = 0;
         cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &result);
+
+        printf("The current global 2-norm is %lf\n", result);
 
         // Check for convergence
         // *converged == 1
