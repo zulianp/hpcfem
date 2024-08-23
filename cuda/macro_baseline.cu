@@ -709,7 +709,7 @@ void set_boundary_conditions_cuda(size_t num_nodes, real_t *rhs, real_t *x, size
 __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_tets, int num_nodes, real_t *macro_jacobians)
 {
     // Allocate variables for boundary conditions
-    int max_iter = 10000;
+    int max_iter = 10;
     double tol = 1e-7;
     real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
@@ -967,7 +967,7 @@ int main(void) {
     int num_nodes = compute_nodes_number(tetra_level);
     int num_micro_tets = compute_tets_number(tetra_level);
 
-    int num_macro_tets = 10;
+    int num_macro_tets = 100000;
 
     real_t *macro_jacobians, *h_macro_jacobians;
     checkCudaError(cudaMallocHost(&h_macro_jacobians, sizeof(real_t) * 9 * num_macro_tets));
