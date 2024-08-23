@@ -180,10 +180,15 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     int level = tetra_level + 1;
 
+    real_t vals_gathered[4];
+    real_t vals_to_scatter[4];
+    
+    real_t macro_J[9];
+    real_t micro_L[16];
+
     for (size_t e = blockIdx.x * blockDim.x + threadIdx.x; e < nelements;
          e += blockDim.x * gridDim.x) {
-        real_t macro_J[9];
-        real_t micro_L[16];
+
 #pragma unroll(9)
         for (int d = 0; d < 9; d++) {
             macro_J[d] = macro_jacobians[d * stride + e];
@@ -207,9 +212,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e1 = p + 1;
                     int e2 = p + level - i - j;
                     int e3 = p + layer_items - j;
-
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
 
                     // printf("First: %d %d %d %d\n", e0, e3, e2, e1);
 
@@ -260,9 +262,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e2 = p + layer_items + level - i - j;
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
 
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
-
                     vals_gathered[0] = vecX[e0 * stride + e];
                     vals_gathered[1] = vecX[e3 * stride + e];
                     vals_gathered[2] = vecX[e2 * stride + e];
@@ -310,9 +309,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e3 = p + layer_items + level - i - j;
                     int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
 
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
-
                     vals_gathered[0] = vecX[e0 * stride + e];
                     vals_gathered[1] = vecX[e3 * stride + e];
                     vals_gathered[2] = vecX[e2 * stride + e];
@@ -359,9 +355,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e1 = p + level - i - j - 1;
                     int e2 = p + layer_items + level - i - j - 1;
                     int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
 
                     vals_gathered[0] = vecX[e0 * stride + e];
                     vals_gathered[1] = vecX[e3 * stride + e];
@@ -411,9 +404,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e2 = p + layer_items + level - i - j + level - i;
                     int e3 = p + layer_items + level - i - j + level - i - 1;
 
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
-
                     vals_gathered[0] = vecX[e0 * stride + e];
                     vals_gathered[1] = vecX[e3 * stride + e];
                     vals_gathered[2] = vecX[e2 * stride + e];
@@ -459,9 +449,6 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     int e1 = p + level - i - j - 1;
                     int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
                     int e3 = p + level - i - j;
-
-      real_t vals_gathered[4];
-      real_t vals_to_scatter[4];
 
                     vals_gathered[0] = vecX[e0 * stride + e];
                     vals_gathered[1] = vecX[e3 * stride + e];
