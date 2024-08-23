@@ -198,7 +198,10 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
         if (e == 0) {
-            printf("Laplacian of Category %d\n", 0);
+            for (int n = 0; n < 100; n += 1) {
+                printf("%lf ", vecX[n * stride + e]);
+            }
+            printf("\nLaplacian of Category %d\n", 0);
             print_matrix(micro_L, 4, 4);
         }
 
