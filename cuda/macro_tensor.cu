@@ -224,9 +224,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         // printf("First: %d %d %d %d\n", e[0], e[1], e[2], e[3]);
 
                         if (macro_idx == 0 && threadIdx.x == 0 && p < 2) {
-                            for (int n = 0; n < 4; n += 1) {
-                                printf("p:%d vals_gathered[%d, %d]: %lf\n", p, n, threadIdx.x, threadIdx.y, vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x]);
-                            }
+                            printf("p:%d vals_gathered[%d, %d]: %lf\n", p, threadIdx.x, threadIdx.y, vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x]);
                         }
 
                         p++;
