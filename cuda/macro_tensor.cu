@@ -250,11 +250,9 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
 
-                        if (vals_iter == 0 && threadIdx.x == 0) {
-                            for (int n = 0; n < 4; n += 1) {
-                                printf("vals_iter:%d vals_to_scatter[%d, %d]: %lf\n", vals_iter, n, threadIdx.x, threadIdx.y, vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x]);
-                            }
-                        }
+                    if (vals_iter == 0 && threadIdx.x == 0) {
+                        printf("vals_iter:%d vals_to_scatter[%d, %d]: %lf\n", vals_iter, threadIdx.x, threadIdx.y, vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x]);
+                    }
                 }
             }
         }
