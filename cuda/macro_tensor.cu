@@ -179,99 +179,104 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
     int level = tetra_level + 1;
 
-    real_t vals_gathered[4];
-    real_t vals_to_scatter[4];
-
     real_t macro_J[9];
-    real_t micro_L[16];
+    real_t micro_L[32];
 
-    for (size_t e = blockIdx.x * blockDim.x + threadIdx.x; e < nelements;
-         e += blockDim.x * gridDim.x) {
+    __shared__ real_t results[blockDim.y][64];
+    __shared__ real_t vals_gathered[blockDim.y][128];
+    __shared__ real_t vals_to_scatter[blockDim.y][128];
+
+    // Declare the fragments
+    wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 8, 8, 4, double, wmma::row_major> b_frag;
+    wmma::fragment<wmma::accumulator, 8, 8, 4, double> c_frag;
+
+    // Initialize the output to zero
+    wmma::fill_fragment(c_frag, 0.0);
+
+    for (size_t macro_idx = blockIdx.x * blockDim.x + threadIdx.y; macro_idx < nelements;
+         macro_idx += blockDim.x * gridDim.x) {
 
 // #pragma unroll(9)
         for (int d = 0; d < 9; d++) {
-            macro_J[d] = macro_jacobians[d * stride + e];
+            macro_J[d] = macro_jacobians[d * stride + macro_idx];
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
 
-        // if (e == 0) {
-        //     printf("vecX: \n");
-        //     for (int n = 0; n < 100; n += 1) {
-        //         printf("%lf ", vecX[n * stride + e]);
-        //     }
-        //     printf("\nLaplacian of Category %d\n", 0);
-        //     print_matrix(micro_L, 4, 4);
-        // }
-
+        int vals_iter = 0;
         int p = 0;
-        for (int i = 0; i < level - 1; i++)
-        {
-            int layer_items = (level - i + 1) * (level - i) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+
+        if (threadIdx.x < 4) {
+            for (int i = 0; i < level - 1; i++)
             {
-                for (int k = 0; k < level - i - j - 1; k++)
+                int layer_items = (level - i + 1) * (level - i) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + 1;
-                    int e2 = p + level - i - j;
-                    int e3 = p + layer_items - j;
+                    for (int k = 0; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {p, p + layer_items - j, p + level - i - j, p + 1};
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
 
-                    // printf("First: %d %d %d %d\n", e0, e3, e2, e1);
+                        // printf("First: %d %d %d %d\n", e[0], e[1], e[2], e[3]);
 
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
+                        // if (e == 0 && p < 2) {
+                        //     for (int n = 0; n < 4; n += 1) {
+                        //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                        //     }
+                        // }
 
-                    // if (e == 0 && p < 2) {
-                    //     for (int n = 0; n < 4; n += 1) {
-                    //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
-                    //     }
-                    // }
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
-
-                    // if (e == 0 && p < 2) {
-                    //     for (int n = 0; n < 4; n += 1) {
-                    //         printf("p:%d vals_to_scatter[%d]: %lf\n", p, n, vals_to_scatter[n]);
-                    //     }
-                    //     printf("vecY[%d]: %lf\n", e0 * stride + e, vecY[e0 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e3 * stride + e, vecY[e3 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e2 * stride + e, vecY[e2 * stride + e]);
-                    //     printf("vecY[%d]: %lf\n", e1 * stride + e, vecY[e1 * stride + e]);
-                    // }
-
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        // TODO: think about the case where we don't have enough sub tetrahedrons (not divisible by 32)
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+            for (int i = 0; i < level - 1; i++)
+            {
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {p, p + layer_items - j, p + level - i - j, p + 1};
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
         }
 
         // Second case
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
 
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 1);
@@ -279,54 +284,76 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         // }
 
         p = 0;
-        for (int i = 0; i < level - 1; i++)
-        {
-            int layer_items = (level - i) * (level - i - 1) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+        if (threadIdx.x < 4) {
+            for (int i = 0; i < level - 1; i++)
             {
-                p++;
-                for (int k = 1; k < level - i - j - 1; k++)
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + layer_items + level - i - j - 1;
-                    int e2 = p + layer_items + level - i - j;
-                    int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + layer_items + level - i - j, 
+                            p + layer_items + level - i - j - 1
+                        };
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
-
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+
+            for (int i = 0; i < level - 1; i++)
+            {
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + layer_items + level - i - j, 
+                            p + layer_items + level - i - j - 1
+                        };
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
 
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 2);
@@ -335,55 +362,77 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         // Third case
         p = 0;
-
-        for (int i = 0; i < level - 1; i++)
-        {
-            int layer_items = (level - i) * (level - i - 1) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+        if (threadIdx.x < 4) {
+            for (int i = 0; i < level - 1; i++)
             {
-                p++;
-                for (int k = 1; k < level - i - j - 1; k++)
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + level - i - j;
-                    int e3 = p + layer_items + level - i - j;
-                    int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j,
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + level - i - j
+                        };
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
-
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+
+            for (int i = 0; i < level - 1; i++)
+            {
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j,
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + level - i - j
+                        };
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 3);
         //     print_matrix(micro_L, 4, 4);
@@ -392,54 +441,76 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         // Fourth case
         p = 0;
 
-        for (int i = 0; i < level - 1; i++)
-        {
-            int layer_items = (level - i) * (level - i - 1) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+        if (threadIdx.x < 4) {
+            for (int i = 0; i < level - 1; i++)
             {
-                p++;
-                for (int k = 1; k < level - i - j - 1; k++)
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + level - i - j - 1;
-                    int e2 = p + layer_items + level - i - j - 1;
-                    int e3 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + layer_items + level - i - j - 1,
+                            p + level - i - j - 1
+                        };
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
-
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+
+            for (int i = 0; i < level - 1; i++)
+            {
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + layer_items + level - i - j - 1,
+                            p + level - i - j - 1
+                        };
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 4);
         //     print_matrix(micro_L, 4, 4);
@@ -447,56 +518,79 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         // Fifth case
         p = 0;
+        if (threadIdx.x < 4) {
 
-        for (int i = 1; i < level - 1; i++)
-        {
-            p = p + level - i + 1;
-            int layer_items = (level - i) * (level - i - 1) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+            for (int i = 1; i < level - 1; i++)
             {
-                p++;
-                for (int k = 1; k < level - i - j - 1; k++)
+                p = p + level - i + 1;
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + layer_items + level - i;
-                    int e2 = p + layer_items + level - i - j + level - i;
-                    int e3 = p + layer_items + level - i - j + level - i - 1;
-
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e2 * stride + e];
-                    vals_gathered[2] = vecX[e1 * stride + e];
-                    vals_gathered[3] = vecX[e3 * stride + e];
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j + level - i,
+                            p + layer_items + level - i,
+                            p + layer_items + level - i - j + level - i - 1
+                        };
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e2 * stride + e] += vals_to_scatter[1];
-                    vecY[e1 * stride + e] += vals_to_scatter[2];
-                    vecY[e3 * stride + e] += vals_to_scatter[3];
-
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+
+            for (int i = 1; i < level - 1; i++)
+            {
+                p = p + level - i + 1;
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + layer_items + level - i - j + level - i,
+                            p + layer_items + level - i,
+                            p + layer_items + level - i - j + level - i - 1
+                        };
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
+        wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 5);
         //     print_matrix(micro_L, 4, 4);
@@ -504,55 +598,79 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         // Sixth case
         p = 0;
-        for (int i = 0; i < level - 1; i++)
-        {
-            int layer_items = (level - i) * (level - i - 1) / 2;
-            for (int j = 0; j < level - i - 1; j++)
+        if (threadIdx.x < 4) {
+
+            for (int i = 0; i < level - 1; i++)
             {
-                p++;
-                for (int k = 1; k < level - i - j - 1; k++)
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
                 {
-                    int e0 = p;
-                    int e1 = p + level - i - j - 1;
-                    int e2 = p + layer_items + level - i - j - 1 + level - i - j - 1;
-                    int e3 = p + level - i - j;
-
-                    vals_gathered[0] = vecX[e0 * stride + e];
-                    vals_gathered[1] = vecX[e3 * stride + e];
-                    vals_gathered[2] = vecX[e2 * stride + e];
-                    vals_gathered[3] = vecX[e1 * stride + e];
-
-                    vals_to_scatter[0] = 0;
-                    vals_to_scatter[1] = 0;
-                    vals_to_scatter[2] = 0;
-                    vals_to_scatter[3] = 0;
-
-                    for (int n = 0; n < 4; n++) {
-                        for (int m = 0; m < 4; m++) {
-                            vals_to_scatter[m] += micro_L[n * 4 + m] * vals_gathered[n];
-                            assert(micro_L[n * 4 + m] == micro_L[n * 4 + m]);
-                            // assert(!isnan(micro_L[i * 4 + j]));
-                            // assert(!isnan(vecX[es[i]]));
-                            // assert(!isnan(vecY[es[j]]));
-                        }
-                        assert(vals_gathered[n] == vals_gathered[n]);
-                        assert(vals_to_scatter[n] == vals_to_scatter[n]);
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + level - i - j,
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + level - i - j - 1
+                        };
+                        vals_gathered[threadIdx.y][4 * vals_iter + threadIdx.x] = vecX[e[threadIdx.x] * stride + macro_idx];
+                        vals_iter += 1;
+                        p++;
                     }
-
-                    vecY[e0 * stride + e] += vals_to_scatter[0];
-                    vecY[e3 * stride + e] += vals_to_scatter[1];
-                    vecY[e2 * stride + e] += vals_to_scatter[2];
-                    vecY[e1 * stride + e] += vals_to_scatter[3];
                     p++;
                 }
                 p++;
             }
-            p++;
+        }
+
+        __syncwarp();
+        for (int i = 0; i < vals_iter; i += 32) {
+            // Load the inputs
+            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // Perform the matrix multiplication
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
+            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            if (threadIdx.x < 4) {
+                for (int j = 0; j < 8; j += 1) {
+                    vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
+                }
+            }
+        }
+        __syncwarp();
+        if (threadIdx.x < 4) {
+            p = 0;
+            vals_iter = 0;
+
+            for (int i = 0; i < level - 1; i++)
+            {
+                int layer_items = (level - i) * (level - i - 1) / 2;
+                for (int j = 0; j < level - i - 1; j++)
+                {
+                    p++;
+                    for (int k = 1; k < level - i - j - 1; k++)
+                    {
+                        int e[4] = {
+                            p, 
+                            p + level - i - j,
+                            p + layer_items + level - i - j - 1 + level - i - j - 1,
+                            p + level - i - j - 1
+                        };
+                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vals_iter += 1;
+                        p++;
+                    }
+                    p++;
+                }
+                p++;
+            }
+
         }
     }
 }
 
-int compute_nodes_number(int tetra_level)
+int compute_nodes_number_aux(int tetra_level)
 {
     int num_nodes = 0;
     if (tetra_level % 2 == 0)
@@ -571,6 +689,13 @@ int compute_nodes_number(int tetra_level)
         }
     }
     return num_nodes;
+}
+
+int compute_nodes_number(int tetra_level)
+{
+    // 1 layer = 4
+    // 2 layer = 10
+    return (tetra_level + 3) * (tetra_level + 2) * (tetra_level + 1) / 6;
 }
 
 int compute_tets_number(int tetra_level)
@@ -980,6 +1105,9 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     checkCudaError(cudaMalloc(&d_Ax, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_r, num_macro_tets * num_nodes * sizeof(real_t)));
 
+    blockDim tensorCoreDim(32, 8, 1);
+    int numTensorCoreBlocks = (num_macro_tets + tensorCoreDim.y - 1) / tensorCoreDim.y;
+
     cublasHandle_t cublas_handle;
     cublasCreate(&cublas_handle);
 
@@ -1000,7 +1128,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     while (iter < max_iter) {
 
         // Initialize r = b - A * x
-        cu_macro_tet4_laplacian_apply_kernel<<<numBlocks, threadsPerBlock>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
+        cu_macro_tet4_laplacian_apply_kernel<<<numTensorCoreBlocks, tensorCoreDim>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
         ifLastErrorExists("Kernel launch failed");
 
         applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_b, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
