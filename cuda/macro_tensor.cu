@@ -265,7 +265,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                     for (int k = 1; k < level - i - j - 1; k++)
                     {
                         int e[4] = {p, p + layer_items - j, p + level - i - j, p + 1};
-                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vecY[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
                         vals_iter += 1;
                         p++;
                     }
@@ -343,7 +343,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                             p + layer_items + level - i - j, 
                             p + layer_items + level - i - j - 1
                         };
-                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vecY[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
                         vals_iter += 1;
                         p++;
                     }
@@ -421,7 +421,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                             p + layer_items + level - i - j - 1 + level - i - j - 1,
                             p + level - i - j
                         };
-                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vecY[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
                         vals_iter += 1;
 
                         p++;
@@ -500,7 +500,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                             p + layer_items + level - i - j - 1,
                             p + level - i - j - 1
                         };
-                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vecY[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
                         vals_iter += 1;
                         p++;
                     }
@@ -580,7 +580,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                             p + layer_items + level - i,
                             p + layer_items + level - i - j + level - i - 1
                         };
-                        vecX[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
+                        vecY[e[threadIdx.x] * stride + macro_idx] = vals_to_scatter[threadIdx.y][4 * vals_iter + threadIdx.x];
                         vals_iter += 1;
                         p++;
                     }
