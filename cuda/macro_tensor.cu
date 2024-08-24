@@ -912,6 +912,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
         ifLastErrorExists("Kernel launch failed");
 
         printf("Iteration: %d, computeResidual finished\n", iter);
+        cudaDeviceSynchronize();
 
         // cuBLAS for reduction
         // minSquareError computeNorm
