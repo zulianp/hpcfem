@@ -911,7 +911,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
         computeResidual<<<numBlocks, threadsPerBlock>>>(d_r, d_b, d_Ax, num_macro_tets, stride, num_nodes);
         ifLastErrorExists("Kernel launch failed");
 
-        printf("Iteration: %d, computeResidual finished\n");
+        printf("Iteration: %d, computeResidual finished\n", iter);
 
         // cuBLAS for reduction
         // minSquareError computeNorm
