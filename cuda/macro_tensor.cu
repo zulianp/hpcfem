@@ -204,7 +204,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
 
         int vals_iter = 0;
         int p = 0;
@@ -239,11 +239,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         // TODO: think about the case where we don't have enough sub tetrahedrons (not divisible by 32)
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
@@ -279,7 +279,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         // Second case
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
 
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 1);
@@ -315,11 +315,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         __syncwarp();
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
@@ -356,7 +356,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
 
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 2);
@@ -393,11 +393,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         __syncwarp();
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
@@ -435,7 +435,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 3);
         //     print_matrix(micro_L, 4, 4);
@@ -472,11 +472,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         __syncwarp();
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
@@ -513,7 +513,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 4);
         //     print_matrix(micro_L, 4, 4);
@@ -551,11 +551,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         __syncwarp();
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
@@ -593,7 +593,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
-        wmma::load_matrix_sync(a_frag, micro_L, 4);
+        // wmma::load_matrix_sync(a_frag, micro_L, 4);
         // if (e == 0) {
         //     printf("Laplacian of Category %d\n", 5);
         //     print_matrix(micro_L, 4, 4);
@@ -630,11 +630,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         __syncwarp();
         for (int i = 0; i < vals_iter; i += 32) {
             // Load the inputs
-            wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
+            // wmma::load_matrix_sync(b_frag, &vals_gathered[threadIdx.y][i], 8);
             // Perform the matrix multiplication
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            // wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
             // Store the output (sync is necessary for &vals_to_scatter[i] due to padding overwritting memory)
-            wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, wmma::mem_row_major);
+            // wmma::store_matrix_sync(results[threadIdx.y], c_frag, 8, // wmma::mem_row_major);
             if (threadIdx.x < 4) {
                 for (int j = 0; j < 8; j += 1) {
                     vals_to_scatter[threadIdx.y][i + j * 4 + threadIdx.x] = results[threadIdx.y][threadIdx.x * 8 + j];
