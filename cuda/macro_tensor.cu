@@ -184,8 +184,8 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
     real_t micro_L[32];
 
     __shared__ real_t results[BLOCK_Y_SIZE][64];
-    __shared__ real_t vals_gathered[BLOCK_Y_SIZE][128];
-    __shared__ real_t vals_to_scatter[BLOCK_Y_SIZE][128];
+    __shared__ real_t vals_gathered[BLOCK_Y_SIZE][256];
+    __shared__ real_t vals_to_scatter[BLOCK_Y_SIZE][256];
 
     // Declare the fragments
     wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -223,11 +223,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
                         // printf("First: %d %d %d %d\n", e[0], e[1], e[2], e[3]);
 
-                        // if (e == 0 && p < 2) {
-                        //     for (int n = 0; n < 4; n += 1) {
-                        //         printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
-                        //     }
-                        // }
+                        if (macro_idx == 0 && threadIdx.x == 0 && p < 2) {
+                            for (int n = 0; n < 4; n += 1) {
+                                printf("p:%d vals_gathered[%d]: %lf\n", p, n, vals_gathered[n]);
+                            }
+                        }
 
                         p++;
                     }
@@ -1106,8 +1106,8 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     checkCudaError(cudaMalloc(&d_Ax, num_macro_tets * num_nodes * sizeof(real_t)));
     checkCudaError(cudaMalloc(&d_r, num_macro_tets * num_nodes * sizeof(real_t)));
 
-    dim3 blockDim(32, BLOCK_Y_SIZE, 1);
-    int numTensorCoreBlocks = (num_macro_tets + blockDim.y - 1) / blockDim.y;
+    dim3 tensorCoreBlockDim(32, BLOCK_Y_SIZE, 1);
+    int numTensorCoreBlocks = (num_macro_tets + tensorCoreBlockDim.y - 1) / tensorCoreBlockDim.y;
 
     cublasHandle_t cublas_handle;
     cublasCreate(&cublas_handle);
@@ -1129,7 +1129,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     while (iter < max_iter) {
 
         // Initialize r = b - A * x
-        cu_macro_tet4_laplacian_apply_kernel<<<numTensorCoreBlocks, blockDim>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
+        cu_macro_tet4_laplacian_apply_kernel<<<numTensorCoreBlocks, tensorCoreBlockDim>>>(num_macro_tets, stride, tetra_level, macro_jacobians, d_x, d_Ax);
         ifLastErrorExists("Kernel launch failed");
 
         applyDirichlet<<<numBlocks, threadsPerBlock>>>(d_Ax, d_b, num_macro_tets, stride, d_dirichlet_nodes, num_dirichlet_nodes);
@@ -1205,7 +1205,7 @@ int main(void) {
     int num_nodes = compute_nodes_number(tetra_level);
     int num_micro_tets = compute_tets_number(tetra_level);
 
-    int num_macro_tets = 100000;
+    int num_macro_tets = 1000;
 
     real_t *macro_jacobians, *h_macro_jacobians;
     checkCudaError(cudaMallocHost(&h_macro_jacobians, sizeof(real_t) * 9 * num_macro_tets));
