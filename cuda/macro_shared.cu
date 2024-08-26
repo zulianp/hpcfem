@@ -11,6 +11,7 @@
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <cublas_v2.h>
+#include <cuda_pipeline.h>
 
 // nvcc macro.cu --std=c++11 -o cargo -arch=sm_75 -g -G -lcublas
 using namespace nvcuda;
@@ -187,7 +188,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         const real_t *const vecX,
         real_t *const vecY) {
 
-            extern __shared__ real_t buffer[];
+    extern __shared__ real_t buffer[];
     // These belong to shared memory
     real_t *localX = (real_t *)buffer;
     real_t *localY = (real_t *)&buffer[BLOCK_SIZE * n_micro_nodes]; 
@@ -208,21 +209,23 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             macro_J[d] = macro_jacobians[d * stride + macro_tet_idx];
         }
 
+        // pipeline pipe;
         for (int micro_node_idx = 0; micro_node_idx < n_micro_nodes; micro_node_idx++) {
-            localX[micro_node_idx * BLOCK_SIZE + threadIdx.x] = vecX[micro_node_idx * stride + macro_tet_idx];
-            localY[micro_node_idx * BLOCK_SIZE + threadIdx.x] = vecY[micro_node_idx * stride + macro_tet_idx];
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
         }
+        __pipeline_commit();
+
+        // for (int micro_node_idx = 0; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+        //     localX[micro_node_idx * BLOCK_SIZE + threadIdx.x] = vecX[micro_node_idx * stride + macro_tet_idx];
+        //     localY[micro_node_idx * BLOCK_SIZE + threadIdx.x] = vecY[micro_node_idx * stride + macro_tet_idx];
+        // }
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
-        // if (macro_tet_idx == 0) {
-        //     printf("vecX: \n");
-        //     for (int n = 0; n < 10; n += 1) {
-        //         printf("%lf ", vecX[n * stride + macro_tet_idx]);
-        //     }
-        //     printf("\nLaplacian of Category %d\n", 0);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+        __pipeline_wait_prior(0);
 
         int p = 0;
         for (int i = 0; i < level - 1; i++)
