@@ -11,6 +11,8 @@ __global__ void wmma_ker(double *a, double *b, double *c) {
    // matrix_a 8x4
    // matrix_b 4x8
    // matrix_c 8x8
+
+   __shared__ double x[32];
  
    // Declare the fragments
    wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major> a_frag;
@@ -20,15 +22,35 @@ __global__ void wmma_ker(double *a, double *b, double *c) {
    // Initialize the output to zero
    wmma::fill_fragment(c_frag, 0.0);
 
+    if (threadIdx.x == 0) {
+        for (int i = 0; i < 16; i += 1) {
+            x[i] = i + 1;
+        }
+        for (int i = 16; i < 32; i += 1) {
+            x[i] = 0;
+        }
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 4; j++) {
+                printf("%lf ", x[i * 4 + j]);
+            }
+            printf("\n");
+        }
+    }
+    __syncwarp();
+
+   wmma::load_matrix_sync(a_frag, x, 4);
+
    // Load the inputs
-   wmma::load_matrix_sync(a_frag, a, 4);
-   wmma::load_matrix_sync(b_frag, b, 8);
+   //wmma::load_matrix_sync(a_frag, a, 4);
+    for (int i = 0; i < 4; i += 1) {
+    wmma::load_matrix_sync(b_frag, b, 8);
 
-   // Perform the matrix multiplication
-   wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+    // Perform the matrix multiplication
+    wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
 
-   // Store the output
-   wmma::store_matrix_sync(c, c_frag, 8, wmma::mem_row_major);
+    // Store the output
+    wmma::store_matrix_sync(c, c_frag, 8, wmma::mem_row_major);
+    }
 }
 
 int main(void) {
@@ -93,9 +115,9 @@ int main(void) {
     cudaMemcpy(d_B, B, 4*8 * sizeof(double), cudaMemcpyHostToDevice);
 
     // Launch the kernel
-    dim3 grid(1);
-    dim3 block(32);
-    wmma_ker<<<grid, block, 0>>>(d_A, d_B, d_C);
+    dim3 blockSize(1);
+    dim3 threadsInBlock(32);
+    wmma_ker<<<blockSize, threadsInBlock, 0>>>(d_A, d_B, d_C);
 
     cudaMemcpy(C, d_C, 8*8 * sizeof(double), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();

@@ -773,7 +773,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
     // TODO: Set boundary conditions
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
-    checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
 
     printf("initial x from set_boundary_conditions_cuda: \n");
     for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
@@ -824,7 +824,7 @@ __host__ real_t *solve_using_conjugate_gradient(int tetra_level, int num_macro_t
 
     // cuBLAS for reduction
     // minSquareError computeNorm
-    double result = 0;
+    real_t result = 0;
     cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &result);
     ifLastErrorExists("Kernel launch failed");
 
@@ -968,7 +968,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
 {
     // Allocate variables for boundary conditions
     int max_iter = 10;
-    double tol = 1e-2;
+    real_t tol = 1e-2;
     real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
     checkCudaError(cudaMallocHost(&h_r, num_macro_tets * sizeof(real_t) * num_nodes));
@@ -1011,8 +1011,12 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
 
         // cuBLAS for reduction
         // minSquareError computeNorm
-        double norm_r = 0;
-        cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &norm_r);
+        real_t norm_r = 0;
+        if (sizeof(real_t) == 4) {
+            checkCUBLASError(cublasSnrm2(cublas_handle, num_macro_tets * num_nodes, (float *) d_r, 1, (float *) &norm_r));
+        } else if (sizeof(real_t) == 8) {
+            checkCUBLASError(cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, (double *) d_r, 1, (double *) &norm_r));
+        }
         ifLastErrorExists("Kernel launch failed");
 
         printf("Iteration: %d, Global 2-norm = %lf\n", iter, norm_r);

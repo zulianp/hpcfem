@@ -17,7 +17,7 @@
 using namespace nvcuda;
 using namespace cooperative_groups;
 
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE 320 // 384 for refinement level 5 and 16 entries in shared memory
 typedef double real_t;
 
 #define checkCUBLASError(call)                                                \
@@ -66,7 +66,7 @@ __device__ void print_matrix(real_t *matrix, int rows, int cols)
 
 __device__ real_t determinant_3x3(real_t *m) {
     // computes the inverse of a matrix m
-    double det = m[0*3+0] * (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) -
+    real_t det = m[0*3+0] * (m[1*3+1] * m[2*3+2] - m[2*3+1] * m[1*3+2]) -
         m[0*3+1] * (m[1*3+0] * m[2*3+2] - m[1*3+2] * m[2*3+0]) +
         m[0*3+2] * (m[1*3+0] * m[2*3+1] - m[1*3+1] * m[2*3+0]);
     // print_matrix(m, 3, 3);
@@ -178,6 +178,21 @@ __device__ void jacobian_to_laplacian(real_t *macro_J, real_t *micro_L, int tetr
 
 }
 
+__device__ void overwrite_with_next_node(real_t *localX, real_t *localY, const real_t *vecX, real_t *vecY, 
+    int micro_node_idx, int n_micro_nodes, int max_layer_diff, int stride, int macro_tet_idx) {
+    int next_micro_node_idx = micro_node_idx + max_layer_diff;
+    // write back updated contribution
+    int shared_p_idx = micro_node_idx % max_layer_diff;
+    vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+    if (next_micro_node_idx < n_micro_nodes) {
+        __pipeline_memcpy_async(&localX[shared_p_idx * BLOCK_SIZE + threadIdx.x],
+            &vecX[next_micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        __pipeline_memcpy_async(&localY[shared_p_idx * BLOCK_SIZE + threadIdx.x],
+            &vecY[next_micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        __pipeline_commit();
+    }
+}
+
 // template <typename real_t>
 __global__ void cu_macro_tet4_laplacian_apply_kernel(
         const size_t n_macro_tets,
@@ -188,10 +203,11 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
         const real_t *const vecX,
         real_t *const vecY) {
 
-    extern __shared__ real_t buffer[];
+            extern __shared__ real_t buffer[];
     // These belong to shared memory
+    const int max_layer_diff = 32;
     real_t *localX = (real_t *)buffer;
-    real_t *localY = (real_t *)&buffer[BLOCK_SIZE * n_micro_nodes]; 
+    real_t *localY = (real_t *)&buffer[BLOCK_SIZE * max_layer_diff]; 
     
     int level = tetra_level + 1;
 
@@ -209,11 +225,12 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             macro_J[d] = macro_jacobians[d * stride + macro_tet_idx];
         }
 
-        // pipeline pipe;
-        for (int micro_node_idx = 0; micro_node_idx < n_micro_nodes; micro_node_idx++) {
-            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+        for (int micro_node_idx = 0; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+
+            __pipeline_memcpy_async(&localX[shared_p_idx * BLOCK_SIZE + threadIdx.x],
                 &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
-            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+            __pipeline_memcpy_async(&localY[shared_p_idx * BLOCK_SIZE + threadIdx.x],
                 &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
         }
         __pipeline_commit();
@@ -225,7 +242,18 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 0);
 
-        __pipeline_wait_prior(0);
+        __pipeline_wait_prior(2);
+
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("vecX: \n");
+            for (int n = 0; n < 10; n += 1) {
+                printf("%lf ", vecX[n * stride + macro_tet_idx]);
+            }
+            printf("\nLaplacian of Category %d\n", 0);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
 
         int p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -236,29 +264,58 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                 for (int k = 0; k < level - i - j - 1; k++)
                 {
                     int e[4] = {p, p + layer_items - j, p + level - i - j, p + 1};
-
+                    // set this number to max_layer_diff - the real difference
+                    // __pipeline_wait_prior(2 * (max_layer_diff - layer_items + j));
                     // printf("First: %d %d %d %d\n", e0, e3, e2, e1);
 
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
 
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                     p++;
                 }
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 0);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
+
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+        }
+
         // Second case
+        for (int micro_node_idx = 1; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        }
+        __pipeline_commit();
+
         jacobian_to_laplacian(macro_J, micro_L, tetra_level, 1);
 
-        // if (macro_tet_idx == 0) {
-        //     printf("Laplacian of Category %d\n", 1);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+        __pipeline_wait_prior(2);
 
         p = 0;
         for (int i = 0; i < level - 1; i++)
@@ -266,6 +323,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             int layer_items = (level - i) * (level - i - 1) / 2;
             for (int j = 0; j < level - i - 1; j++)
             {
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
                 for (int k = 1; k < level - i - j - 1; k++)
                 {
@@ -278,24 +336,53 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
+
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                     p++;
                 }
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
-        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 1);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
 
-        // if (macro_tet_idx == 0) {
-        //     printf("Laplacian of Category %d\n", 2);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+        }
 
         // Third case
+        for (int micro_node_idx = 1; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        }
+        __pipeline_commit();
+
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 2);
+
+        __pipeline_wait_prior(2);
+
         p = 0;
 
         for (int i = 0; i < level - 1; i++)
@@ -303,6 +390,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             int layer_items = (level - i) * (level - i - 1) / 2;
             for (int j = 0; j < level - i - 1; j++)
             {
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
                 for (int k = 1; k < level - i - j - 1; k++)
                 {
@@ -312,26 +400,59 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
                         p + layer_items + level - i - j - 1 + level - i - j - 1,
                         p + level - i - j
                     };
+
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
 
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
+
                     p++;
                 }
+
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
-        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
-        // if (macro_tet_idx == 0) {
-        //     printf("Laplacian of Category %d\n", 3);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 2);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
+
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+        }
 
         // Fourth case
+        for (int micro_node_idx = 1; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        }
+        __pipeline_commit();
+
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 3);
+
+        __pipeline_wait_prior(2);
+
         p = 0;
 
         for (int i = 0; i < level - 1; i++)
@@ -339,6 +460,7 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
             int layer_items = (level - i) * (level - i - 1) / 2;
             for (int j = 0; j < level - i - 1; j++)
             {
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
                 for (int k = 1; k < level - i - j - 1; k++)
                 {
@@ -351,28 +473,63 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
 
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                     p++;
                 }
+
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
-        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
-        // if (macro_tet_idx == 0) {
-        //     printf("Laplacian of Category %d\n", 4);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 3);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
+
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+        }
 
         // Fifth case
+        for (int micro_node_idx = level - 1; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        }
+        __pipeline_commit();
+
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 4);
+
+        __pipeline_wait_prior(2);
+
         p = 0;
 
         for (int i = 1; i < level - 1; i++)
         {
+            for (int micro_node_idx = p; micro_node_idx < p + level - i + 1; micro_node_idx++) {
+                overwrite_with_next_node(localX, localY, vecX, vecY, micro_node_idx, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
+            }
+            __pipeline_commit();
+
             p = p + level - i + 1;
             int layer_items = (level - i) * (level - i - 1) / 2;
             for (int j = 0; j < level - i - 1; j++)
@@ -389,30 +546,60 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
 
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                     p++;
                 }
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
-        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
-        // if (macro_tet_idx == 0) {
-        //     printf("Laplacian of Category %d\n", 5);
-        //     print_matrix(micro_L, 4, 4);
-        // }
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 4);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
+
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
+        }
 
         // Sixth case
+        for (int micro_node_idx = 0; micro_node_idx < max_layer_diff; micro_node_idx++) {
+            __pipeline_memcpy_async(&localX[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecX[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+            __pipeline_memcpy_async(&localY[micro_node_idx * BLOCK_SIZE + threadIdx.x],
+                &vecY[micro_node_idx * stride + macro_tet_idx], sizeof(real_t));
+        }
+        __pipeline_commit();
+
+        jacobian_to_laplacian(macro_J, micro_L, tetra_level, 5);
+
+        __pipeline_wait_prior(2);
+
         p = 0;
         for (int i = 0; i < level - 1; i++)
         {
             int layer_items = (level - i) * (level - i - 1) / 2;
             for (int j = 0; j < level - i - 1; j++)
             {
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
                 for (int k = 1; k < level - i - j - 1; k++)
                 {
@@ -425,19 +612,43 @@ __global__ void cu_macro_tet4_laplacian_apply_kernel(
 
                     for (int n = 0; n < 4; n++) {
                         for (int m = 0; m < 4; m++) {
-                            localY[e[n] * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[e[m] * BLOCK_SIZE + threadIdx.x];
+                            int shared_m_idx = e[m] % max_layer_diff;
+                            int shared_n_idx = e[n] % max_layer_diff;
+                            localY[shared_n_idx * BLOCK_SIZE + threadIdx.x] += micro_L[n * 4 + m] * localX[shared_m_idx * BLOCK_SIZE + threadIdx.x];
                         }
                     }
+
+                    __pipeline_wait_prior(0);
+
+                    overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                     p++;
                 }
+                overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
                 p++;
             }
+            overwrite_with_next_node(localX, localY, vecX, vecY, p, n_micro_nodes, max_layer_diff, stride, macro_tet_idx);
             p++;
         }
 
-        for (int micro_node_idx = 0; micro_node_idx < n_micro_nodes; micro_node_idx++) {
-            vecY[micro_node_idx * stride + macro_tet_idx] = localY[micro_node_idx * BLOCK_SIZE + threadIdx.x];
+        for (int micro_node_idx = p; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+            int shared_p_idx = micro_node_idx % max_layer_diff;
+            vecY[micro_node_idx * stride + macro_tet_idx] = localY[shared_p_idx * BLOCK_SIZE + threadIdx.x];
         }
+
+#ifdef DEBUG
+        if (macro_tet_idx == 0) {
+            printf("localY: \n");
+            for (int n = 0; n < n_micro_nodes; n += 1) {
+                printf("%lf ", localY[n * BLOCK_SIZE + threadIdx.x]);
+            }
+            printf("\nLaplacian of Category %d\n", 5);
+            print_matrix(micro_L, 4, 4);
+        }
+#endif
+
+        // for (int micro_node_idx = 0; micro_node_idx < n_micro_nodes; micro_node_idx++) {
+        //     vecY[micro_node_idx * stride + macro_tet_idx] = localY[micro_node_idx * BLOCK_SIZE + threadIdx.x];
+        // }
     }
 }
 
@@ -615,8 +826,8 @@ void set_boundary_conditions_cuda(size_t num_nodes, real_t *rhs, real_t *x, size
 __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tets, int num_nodes, real_t *macro_jacobians)
 {
     // Allocate variables for boundary conditions
-    int max_iter = 5;
-    double tol = 1e-2;
+    int max_iter = 3;
+    real_t tol = 1e-2;
     real_t *h_x, *h_r;
     checkCudaError(cudaMallocHost(&h_x, num_macro_tets * sizeof(real_t) * num_nodes));
     checkCudaError(cudaMallocHost(&h_r, num_macro_tets * sizeof(real_t) * num_nodes));
@@ -637,13 +848,14 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
     int stride = num_macro_tets;
 
     set_boundary_conditions_cuda(num_nodes, d_b, d_x, num_macro_tets, stride, &d_dirichlet_nodes, &num_dirichlet_nodes);
-    checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+    checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
 
     int threadsPerBlock = BLOCK_SIZE;
     int numBlocks = (num_macro_tets + threadsPerBlock - 1) / threadsPerBlock;
 
     int sharedMemoryBytes = 164000; // 100KB (100000, tetra_level=4) or 164KB (164000, tetra_level=5)
-    int requiredBytes = 2 * sizeof(real_t) * BLOCK_SIZE * num_nodes;
+    const int max_layer_diff = 32;
+    int requiredBytes = 2 * sizeof(real_t) * BLOCK_SIZE * max_layer_diff;
     checkCudaError(cudaFuncSetAttribute(cu_macro_tet4_laplacian_apply_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, sharedMemoryBytes));
     printf("Bytes requested: %d, needed: %d\n", sharedMemoryBytes, requiredBytes);
 
@@ -665,8 +877,12 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
 
         // cuBLAS for reduction
         // minSquareError computeNorm
-        double norm_r = 0;
-        checkCUBLASError(cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, d_r, 1, &norm_r));
+        real_t norm_r = 0;
+        if (sizeof(real_t) == 4) {
+            checkCUBLASError(cublasSnrm2(cublas_handle, num_macro_tets * num_nodes, (float *) d_r, 1, (float *) &norm_r));
+        } else if (sizeof(real_t) == 8) {
+            checkCUBLASError(cublasDnrm2(cublas_handle, num_macro_tets * num_nodes, (double *) d_r, 1, (double *) &norm_r));
+        }
         ifLastErrorExists("Kernel launch failed");
 
         printf("Iteration: %d, Global 2-norm = %lf\n", iter, norm_r);
@@ -686,7 +902,7 @@ __host__ real_t *solve_using_gradient_descent(int tetra_level, int num_macro_tet
         vectorUpdate<<<numBlocks, threadsPerBlock>>>(d_x, gamma, d_r, stride, num_macro_tets, num_nodes);
         ifLastErrorExists("Kernel launch failed");
         
-        // checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t *) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
+        // checkCudaError(cudaMemcpy(h_x, d_x, sizeof(real_t) * num_macro_tets * num_nodes, cudaMemcpyDeviceToHost));
         // printf("resulting x from vectorAdd: \n");
         // for (int n = 0; n < num_nodes * num_macro_tets; n += num_macro_tets) {
         //     printf("%lf ", h_x[n]);
@@ -724,13 +940,13 @@ void compute_A(real_t *p0, real_t *p1, real_t *p2, real_t *p3, real_t *A)
 }
 
 int main(void) {
-    int tetra_level = 3;
+    int tetra_level = 6;
 
     // Compute the number of nodes
     int num_nodes = compute_nodes_number(tetra_level);
     int num_micro_tets = compute_tets_number(tetra_level);
 
-    int num_macro_tets = 1000000;
+    int num_macro_tets = 10000000;
 
     real_t *macro_jacobians, *h_macro_jacobians;
     checkCudaError(cudaMallocHost(&h_macro_jacobians, sizeof(real_t) * 9 * num_macro_tets));
